@@ -2,12 +2,18 @@
 name = "magic_migrate"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/schneems/magic_migrate"
+documentation = "https://docs.rs/magic_migrate"
+readme = "README.md"
+include = ["src/**/*", "LICENSE", "README.md"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = {version = "1", features = ["derive"]}
+serde = "1"
 
 [dev-dependencies]
 chrono = { version = "0.4", features = ["serde"] }
+serde = {version = "1", features = ["derive"]}
 toml = "0.8"

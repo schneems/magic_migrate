@@ -1,71 +1,33 @@
+#![doc = include_str!("../README.md")]
+
 use serde::de::DeserializeOwned;
 use serde::Deserializer;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 
-/// Magic Migrate: Automagically load and migrate deserialized structs to the latest version
-///
-/// Problem: Let's say that you made a struct that serializes to disk somehow,
-/// perhaps it uses toml. Now, let's say that you want to add a new field to that
-/// struct, but you don't want to lose older persisted data. What ever should you do?
-///
-/// You can define how to convert from one struct to another using either `From` or
-/// `TryFrom` then tell Rust how to migrate from one to the next via `Migrate` or `TryMigrate`
-/// traits. Now, when you try to load data into the current struct it will follow a chain
-/// of structs in reverse order to find the first one that successfully serializes. When
-/// that happens, it will convert that struct to the latest version for you. It's magic!
-/// (It's actually mostly clever use of trait boundries, but whatever).
-///
-/// This library was created to handle the case of serialized metadata stored in
-/// layers in a https://github.com/heroku/libcnb.rs buildpack. To that end, it
-/// includes a helpful macro to define a chain of migrations for you:
-///
-/// ```rust
-/// use magic_migrate::{Migrate, migrate_toml_chain};
-///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl From<PersonV1> for PersonV2 {
-///     fn from(value: PersonV1) -> Self {
-///         PersonV2 {
-///             name: value.name.clone(),
-///             updated_at: Utc::now()
-///         }
-///     }
-/// }
-///
-/// // Then specify the order of the migrations from left to right
-/// migrate_toml_chain!(PersonV1, PersonV2);
-///
-/// // Now, given a serialized struct
-/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
-///
-/// // Cannot deserialize PersonV1 toml into PersonV2
-/// let result = toml::from_str::<PersonV2>(&toml_string);
-///  assert!(result.is_err());
-///
-/// // Can deserialize to PersonV1 then migrate to PersonV2
-/// let person: PersonV2 = PersonV2::from_str_migrations(&toml_string).unwrap();
-/// assert_eq!(person.name, "Schneems".to_string());
-/// ```
-///
-/// See trait definitions `Migrate` and `TryMigrate` for additional docs.
-
-/// Use the `Migrate` trait when structs can be infallibly migrated
+/// Use the [`Migrate`] trait when structs can be infallibly migrated
 /// from one version to the next.
+///
+/// Each [`Migrate`] implementation will create one link. To build a
+/// complete chain, you will need 2 or more structs linked together.
+/// The first struct in the chain must be linked to itself to indicate
+/// it is aware it's being used in the verison migration pattern, and
+/// to assure us that there's no version that comes before it.
+///
+/// If you cannot infallibly convert from one struct to another
+/// you can implement the [`TryMigrate`] trait instead.
+///
+/// Both migration traits can be used with any deserializer format (i.e. toml,
+/// json, YAML, etc.). To create a migration, you'll have to tell Rust which
+/// deserializer you want to use.
+///
+/// Also see:
+///   - [`migrate_link`] macro for quickly building all links but the first
+///   - [`migrate_toml_chain`] macro for building an entire chain with the toml deserializer
+///
+/// ## Example
+///
+/// Here's an example of manually implementing the [`Migrate`] trait.
 ///
 /// ```rust
 /// use magic_migrate::{Migrate};
@@ -74,11 +36,13 @@ use std::fmt::Debug;
 /// use chrono::{DateTime, Utc};
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV1 {
 ///     name: String
 /// }
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV2 {
 ///     name: String,
 ///     updated_at: DateTime<Utc>
@@ -152,8 +116,22 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
     }
 }
 
-/// Use the `TryMigrate` trait when structs CANNOT be infallibly migrated
+/// Use the [`TryMigrate`] trait when structs CANNOT be infallibly migrated
 /// from one version to the next and an error may be returned.
+///
+/// If your structs can be infallibly migrated use [`Migrate`].
+///
+/// Like [`Migrate`] each implementation of this trait creates a link in a migration
+/// chain. To have a full chain, the first struct must implement this trait
+/// ([`TryMigrate`]) on itself.
+///
+/// In addition to specifying the struct links and the deserializer (like [`Migrate`])
+/// you must also specify what error to return when the migration chain fails. This
+/// error must be able to hold any error created in the migration chain, including
+/// [`std::convert::Infallible`]. In practice that means [`From`] must be implemented
+/// on error types in the migration chain going into the error.
+//
+/// # Example
 ///
 /// ```rust
 /// use magic_migrate::{TryMigrate};
@@ -163,11 +141,13 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// use std::convert::Infallible;
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV1 {
 ///     name: String
 /// }
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV2 {
 ///     name: String,
 ///     updated_at: DateTime<Utc>
@@ -197,18 +177,19 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// // Create an error struct for return type
 /// //
 /// // Because the migration can fail we need to resolve
-/// // error types. The first struct in the chain always
-/// // references itself, so the error type must always
-/// // support `From<Infallibly>`
+/// // error types.
 /// #[derive(Debug, Eq, PartialEq)]
 /// enum PersonMigrationError {
 ///     NotRichard(NotRichard),
-///     Infallible
 /// }
 ///
+///
+/// // The first struct in the chain always
+/// // references itself, so the error type must always
+/// // support `From<Infallible>`
 /// impl From<Infallible> for PersonMigrationError {
 ///     fn from(_value: Infallible) -> Self {
-///         PersonMigrationError::Infallible
+///       unreachable!()
 ///     }
 /// }
 ///
@@ -247,11 +228,9 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///     }
 /// }
 ///
-/// // That's it! This is basically the same thing that the `migrate_toml_chain`
-/// // macro did for you, but using the trait directly allows for any deserializer
-/// // you want.
+/// // That's it! Now, you can use it.
 ///
-/// // Now, given a serialized struct
+/// // Given a serialized struct
 /// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
 ///
 /// // Cannot deserialize PersonV1 toml into PersonV2
@@ -263,7 +242,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// assert_eq!(person.name, "Schneems".to_string());
 ///
 /// // Conversion can fail
-/// let result = PersonV2::try_from_str_migrations(&"name = 'Cinco'").unwrap();
+/// let result = PersonV2::try_from_str_migrations(&"name = 'Should Fail'").unwrap();
 /// assert!(result.is_err());
 /// ```
 pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
@@ -294,9 +273,8 @@ pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
     }
 }
 
-/// Implement `TryMigrate` for all structs that infailably
-/// can `Migrate`.
-///
+/// Implement [`TryMigrate`] for all structs that infailably
+/// can [`Migrate`].
 impl<T> TryMigrate for T
 where
     T: Migrate,
@@ -311,7 +289,7 @@ where
 }
 
 /// Macro for linking structs together in a migration chain
-/// without defining the first Self migration in the chain
+/// without defining the first migration in the chain
 /// or the deserializer.
 ///
 /// i.e. it Links A => B, B => C etc. without linking A => A
@@ -319,8 +297,8 @@ where
 /// Relies on A => A to define the type of deserializer.
 /// That means this can be reused for any deserializer you want.
 ///
-/// See `migrate_toml_chain` for an example of how to build a macro
-/// for your own deserializer
+/// See [`migrate_toml_chain`] for an example of how to build a macro
+/// for another deserializer.
 #[macro_export]
 macro_rules! migrate_link {
     // Base case, defines the trait
@@ -343,7 +321,45 @@ macro_rules! migrate_link {
     )
 }
 
-/// See module docs for an example use case
+/// Links each struct passed in to each other to build a migration link chain.
+/// Including creating the first "self" migration which defines the deserializer
+/// to be toml.
+///
+/// ## Example
+///
+/// See [`crate`] module docs for a full example use case
+///
+/// ```no_run
+/// use magic_migrate::{Migrate, migrate_toml_chain};
+///
+/// # use serde::{Deserialize, Serialize, de::Deserializer};
+/// # #[derive(Deserialize, Serialize, Debug)]
+/// # struct UserV1;
+/// #
+/// # #[derive(Deserialize, Serialize, Debug)]
+/// # struct UserV2;
+/// # impl From<UserV1> for UserV2 {
+/// #   fn from(value: UserV1) -> Self {
+/// #     unimplemented!()
+/// #   }
+/// # }
+/// #
+/// # #[derive(Deserialize, Serialize, Debug)]
+/// # struct UserV3;
+/// # impl From<UserV2> for UserV3 {
+/// #   fn from(value: UserV2) -> Self {
+/// #     unimplemented!()
+/// #   }
+/// # }
+///
+/// // ...
+///
+/// // - Link UserV1 => UserV1 and set the toml deserializer
+/// // - Link UserV1 => UserV2
+/// // - Link UserV2 => UserV3
+/// migrate_toml_chain!(UserV1, UserV2, UserV3);
+/// ```
+///
 #[macro_export(local_inner_macros)]
 macro_rules! migrate_toml_chain {
     // Base case
@@ -376,11 +392,13 @@ macro_rules! migrate_toml_chain {
 /// use std::convert::Infallible;
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV1 {
 ///     name: String
 /// }
 ///
 /// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
 /// struct PersonV2 {
 ///     name: String,
 ///     updated_at: DateTime<Utc>
