@@ -25,9 +25,10 @@ use std::fmt::Debug;
 ///   - [`migrate_link`] macro for quickly building all links but the first
 ///   - [`migrate_toml_chain`] macro for building an entire chain with the toml deserializer
 ///
-/// ## Example
+/// For infailable migrations, you can use the [`Migrate`] trait. For failable migrations,
+/// use the [`TryMigrate`] trait.
 ///
-/// Here's an example of manually implementing the [`Migrate`] trait.
+/// ## Infailable migration Example ([`Migrate`] trait)
 ///
 /// ```rust
 /// use magic_migrate::{Migrate};
@@ -434,12 +435,11 @@ macro_rules! migrate_toml_chain {
 /// #[derive(Debug, Eq, PartialEq)]
 /// enum PersonMigrationError {
 ///     NotRichard(NotRichard),
-///     Infallible
 /// }
 ///
 /// impl From<Infallible> for PersonMigrationError {
 ///     fn from(_value: Infallible) -> Self {
-///         PersonMigrationError::Infallible
+///         unreachable!()
 ///     }
 /// }
 ///
@@ -449,7 +449,7 @@ macro_rules! migrate_toml_chain {
 ///     }
 /// }
 ///
-/// // Unlike `try_toml_migrate_chain!` this macro does not specify
+/// // Unlike `migrate_toml_chain!` this macro does not specify
 /// // the first "self" migration in the chain. We have to do that
 /// // manually. Use this to define the associated error and
 /// // specify a deserializer
