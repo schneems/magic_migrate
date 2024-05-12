@@ -19,26 +19,50 @@ You can define how to convert from one struct to another using either [`From`] o
 
 For additional docs, see:
 
-- Traits
-    - [`Migrate`] trait
-    - [`TryMigrate`] trait
+- Traits:
+    - [`Migrate`] trait for infallible migrations
+    - [`TryMigrate`] trait for failable migrations
 
-- Link macros
-    - [`migrate_link`] macro
-    - [`try_migrate_link`] macro
+- TOML Chain macros: Specify the order of structs in the migration chain for TOML data.
+    - [`migrate_toml_chain`] macro for infallible migrations of TOML data
+    - [`try_migrate_toml_chain`] macro for fallible migrations of TOML data. Requires an additional error struct.
 
-- Chain macros
-    - [`migrate_toml_chain`] macro
+- BYO deserializer macros:
+    - [`migrate_deserializer_chain`] macro for infallible migrations, BYO Deserializer
+    - [`try_migrate_deserializer_chain`] macro for fallible migrations, BYO Deserializer. Requires an additional error struct.
 
-# Example
+## Fallible [`TryMigrate`] Example with [`try_migrate_deserializer_chain`]
 
-This example uses the [`migrate_toml_chain`] macro to build a migration chain:
+Once defined, invoke migrations via the `try_from_str_migrations` associated function on the struct you wish to deserialize to.
+
+To define migrations you can use a macro like this:
+
+```ignore
+use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
+use serde::de::Deserializer;
+
+// ...
+
+try_migrate_deserializer_chain!(
+    deserializer: toml::Deserializer::new,
+    error: PersonMigrationError,
+    chain: [PersonV1, PersonV2],
+);
+```
+
+- `deserializer:` The argument should be a function that takes an `&str` and returns `impl Deserialize<'de>`. To deserialize TOML you can use the `toml` crate and specify the `toml::Deserializer::new` function.
+- `error:` The error enum used when deserialization fails. Every `TryFrom` should return an error that defines an `Into` for this provided error.
+- `chain:` An ordered list of structs from left to right that you wish to migrate between. Each pair of structs must define it's own `TryFrom` separately. In this case, only a `TryFrom<PersonV1> for PersonV2` is needed.
+
+Full example:
 
 ```rust
-use magic_migrate::{Migrate, migrate_toml_chain};
+use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
+use serde::de::Deserializer;
 
-use serde::{Deserialize, Serialize, de::Deserializer};
+use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use std::convert::Infallible;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -52,30 +76,52 @@ struct PersonV2 {
     name: String,
     updated_at: DateTime<Utc>
 }
+try_migrate_deserializer_chain!( // <=========== HERE
+    deserializer: toml::Deserializer::new,
+    error: PersonMigrationError,
+    chain: [PersonV1, PersonV2],
+);
 
-// First, define how to map from one struct to another
-impl From<PersonV1> for PersonV2 {
-    fn from(value: PersonV1) -> Self {
-        PersonV2 {
-            name: value.name.clone(),
-            updated_at: Utc::now()
+impl TryFrom<PersonV1> for PersonV2 {
+    type Error = NotRichard;
+
+    fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
+        if &value.name == "Schneems" {
+            Ok(PersonV2 {
+                    name: value.name.clone(),
+                    updated_at: Utc::now()
+               })
+        } else {
+            Err(NotRichard { name: value.name.clone() })
         }
     }
 }
 
-// Then specify the order of the migrations from left to right
-migrate_toml_chain!(PersonV1, PersonV2);
+#[derive(Debug, Eq, PartialEq)]
+struct NotRichard {
+  name: String
+}
 
-// Now, given a serialized struct
-let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+impl From<NotRichard> for PersonMigrationError {
+    fn from(value: NotRichard) -> Self {
+        PersonMigrationError::NotRichard(value)
+    }
+}
 
-// Cannot deserialize PersonV1 toml into PersonV2
-let result = toml::from_str::<PersonV2>(&toml_string);
-assert!(result.is_err());
+#[derive(Debug, Eq, PartialEq)]
+enum PersonMigrationError {
+    NotRichard(NotRichard),
+}
 
-// Can deserialize to PersonV1 then migrate to PersonV2
-let person: PersonV2 = PersonV2::from_str_migrations(&toml_string).unwrap();
+// Create a V2 struct from V1 data
+let person: PersonV2 = PersonV2::try_from_str_migrations("name = 'Schneems'").unwrap().unwrap();
 assert_eq!(person.name, "Schneems".to_string());
+```
+
+Protip: You can reduce code churn by creating a type alias to your most recent struct in the chain. For example:
+
+```ignore
+pub(crate) type Person = PersonV2;
 ```
 
 ## Why
