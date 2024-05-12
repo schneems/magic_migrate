@@ -6,7 +6,15 @@ use std::any::{Any, TypeId};
 use std::fmt::Debug;
 
 /// Use the [`Migrate`] trait when structs can be infallibly migrated
-/// from one version to the next.
+/// from one version to the next. Use the [`TryMigrate`] trait when
+/// struct migration may fail.
+///
+/// To help you out, you can also use the following macros:
+///
+/// - [`migrate_toml_chain!`] to link structs together in a migration chain for TOML data.
+/// - [`migrate_deserializer_chain!`] to link structs together in a migration chain, BYO deserializer.
+///
+/// These macros essentially automate the process you'll see below.
 ///
 /// Each [`Migrate`] implementation will create one link. To build a
 /// complete chain, you will need 2 or more structs linked together.
@@ -25,9 +33,10 @@ use std::fmt::Debug;
 ///   - [`migrate_link`] macro for quickly building all links but the first
 ///   - [`migrate_toml_chain`] macro for building an entire chain with the toml deserializer
 ///
-/// ## Example
+/// For infailable migrations, you can use the [`Migrate`] trait. For failable migrations,
+/// use the [`TryMigrate`] trait.
 ///
-/// Here's an example of manually implementing the [`Migrate`] trait.
+/// ## Infailable migration Example ([`Migrate`] trait)
 ///
 /// ```rust
 /// use magic_migrate::{Migrate};
@@ -117,9 +126,13 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 }
 
 /// Use the [`TryMigrate`] trait when structs CANNOT be infallibly migrated
-/// from one version to the next and an error may be returned.
+/// from one version to the next and an error may be returned. For infallible
+/// migration see [`Migrate`].
 ///
-/// If your structs can be infallibly migrated use [`Migrate`].
+/// To help you out, you can use the following macros:
+///
+/// - [`try_migrate_toml_chain!`] to link structs together in a migration chain for TOML data.
+/// - [`try_migrate_deserializer_chain!`] to link structs together in a migration chain, BYO deserializer.
 ///
 /// Like [`Migrate`] each implementation of this trait creates a link in a migration
 /// chain. To have a full chain, the first struct must implement this trait
@@ -127,8 +140,9 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///
 /// In addition to specifying the struct links and the deserializer (like [`Migrate`])
 /// you must also specify what error to return when the migration chain fails. This
-/// error must be able to hold any error created in the migration chain, including
-/// [`std::convert::Infallible`]. In practice that means [`From`] must be implemented
+/// error must be able to hold any error created in the migration chain.
+///
+/// In practice that means [`From`] must be implemented
 /// on error types in the migration chain going into the error.
 //
 /// # Example
@@ -288,7 +302,7 @@ where
     type Error = std::convert::Infallible;
 }
 
-/// Macro for linking structs together in a migration chain
+/// Macro for linking structs together in an infallible [`Migrate`] migration chain
 /// without defining the first migration in the chain
 /// or the deserializer.
 ///
@@ -297,8 +311,12 @@ where
 /// Relies on A => A to define the type of deserializer.
 /// That means this can be reused for any deserializer you want.
 ///
-/// See [`migrate_toml_chain`] for an example of how to build a macro
-/// for another deserializer.
+/// For a fallible migration chain see [`try_migrate_link`].
+///
+/// This macro is used by higher level macros like:
+///
+/// - [`migrate_toml_chain!`] for TOML migrations
+/// - [`migrate_deserializer_chain!`] for migrations with a custom deserializer
 #[macro_export]
 macro_rules! migrate_link {
     // Base case, defines the trait
@@ -321,9 +339,12 @@ macro_rules! migrate_link {
     )
 }
 
-/// Links each struct passed in to each other to build a migration link chain.
+/// Links each struct passed in to each other to build a [`Migrate`] link chain.
 /// Including creating the first "self" migration which defines the deserializer
-/// to be toml.
+/// to be TOML.
+///
+/// To BYO deserializer use [`migrate_deserializer_chain!`]. For a failible migration
+/// use [`try_migrate_toml_chain!`].
 ///
 /// ## Example
 ///
@@ -366,26 +387,66 @@ macro_rules! migrate_toml_chain {
     // Start of the migration chain
     // In A => B => C, we must define the A => A case first.
     ($a:ident) => (
-        impl Migrate for $a {
-            type From = Self;
-
-            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
-                toml::Deserializer::new(input)
-            }
-        }
+        $crate::migrate_deserializer_chain!(
+            deserializer: toml::Deserializer::new,
+            chain: [$a]
+        );
     );
     ($a:ident, $($rest:ident),+) => (
-        // Call the base case to link A => A
-        migrate_toml_chain!($a);
-        // Link the rest i.e. A => B, B => C, etc.
-        migrate_link!($a, $($rest),+);
+        $crate::migrate_deserializer_chain!(
+            deserializer: toml::Deserializer::new,
+            chain: [$a, $($rest),+]
+        );
     )
 }
 
-/// A macro to help define `TryMigrate` based migrations
+/// Macro for linking structs together in an infallible [`TryMigrate`] migration chain
+/// without defining the first migration in the chain
+/// or the deserializer.
+///
+/// i.e. it Links A => B, B => C etc. without linking A => A
+///
+/// Relies on A => A to define the type of deserializer.
+/// That means this can be reused for any deserializer you want.
+///
+/// For a infallible migration chain see [`migrate_link`].
+///
+/// This macro is used by higher level macros like:
+///
+/// - [`try_migrate_toml_chain!`] for TOML migrations
+/// - [`try_migrate_deserializer_chain!`] for migrations with a custom deserializer
+#[macro_export]
+macro_rules! try_migrate_link {
+    // Base case, defines the trait
+    // Links a single pair i.e. A => B
+    ($a:ident, $b:ident) => (
+        impl TryMigrate for $b {
+            type TryFrom = $a;
+            type Error = <<Self as TryMigrate>::TryFrom as TryMigrate>::Error;
+
+            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+                <Self as TryMigrate>::TryFrom::deserializer(input)
+            }
+        }
+    );
+    ($a:ident, $b:ident, $($rest:ident),+) => (
+        // Call the base case to link A => B
+        $crate::try_migrate_link!($a, $b);
+
+        // Link B => C, and the rest
+        $crate::try_migrate_link!($b, $($rest),*)
+    )
+}
+
+/// A macro to help define [`TryMigrate`] based migrations
+///
+/// To use a different deserializer use [`try_migrate_deserializer_chain!`].
+/// To define infallible migrations use [`migrate_toml_chain!`].
+///
+/// # Example
 ///
 /// ```rust
-/// use magic_migrate::{TryMigrate, try_migrate_link};
+/// use magic_migrate::{TryMigrate, try_migrate_toml_chain};
 ///
 /// use serde::{Deserialize, Serialize, de::Deserializer};
 /// use chrono::{DateTime, Utc};
@@ -425,53 +486,21 @@ macro_rules! migrate_toml_chain {
 ///   name: String
 /// }
 ///
-/// // Create an error struct for return type
-/// //
-/// // Because the migration can fail we need to resolve
-/// // error types. The first struct in the chain always
-/// // references itself, so the error type must always
-/// // support `From<Infailable>`
-/// #[derive(Debug, Eq, PartialEq)]
-/// enum PersonMigrationError {
-///     NotRichard(NotRichard),
-///     Infallible
-/// }
-///
-/// impl From<Infallible> for PersonMigrationError {
-///     fn from(_value: Infallible) -> Self {
-///         PersonMigrationError::Infallible
-///     }
-/// }
-///
 /// impl From<NotRichard> for PersonMigrationError {
 ///     fn from(value: NotRichard) -> Self {
 ///         PersonMigrationError::NotRichard(value)
 ///     }
 /// }
 ///
-/// // Unlike `try_toml_migrate_chain!` this macro does not specify
-/// // the first "self" migration in the chain. We have to do that
-/// // manually. Use this to define the associated error and
-/// // specify a deserializer
-///
-/// // First define a migration on the beginning of the chain
-/// //
-/// // In this scenario `PersonV1` only converts from itself.
-/// //
-/// // Implement the `deserializer` function to tell magic migrate
-/// // the data format that the input string will be in. In this case
-/// // we are using `toml`.
-/// impl TryMigrate for PersonV1 {
-///     type TryFrom = Self;
-///     type Error = PersonMigrationError;
-///
-///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
-///         toml::Deserializer::new(input)
-///     }
+/// #[derive(Debug, Eq, PartialEq)]
+/// enum PersonMigrationError {
+///     NotRichard(NotRichard),
 /// }
 ///
-/// // All future migrations can be defined using the macro
-/// try_migrate_link!(PersonV1, PersonV2);
+/// try_migrate_toml_chain!(
+///     error: PersonMigrationError,
+///     chain: [PersonV1, PersonV2],
+/// );
 ///
 /// // Now, given a serialized struct
 /// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
@@ -489,24 +518,255 @@ macro_rules! migrate_toml_chain {
 /// assert!(result.is_err());
 /// ```
 #[macro_export]
-macro_rules! try_migrate_link {
-    // Base case, defines the trait
-    // Links a single pair i.e. A => B
-    ($a:ident, $b:ident) => (
-        impl TryMigrate for $b {
-            type TryFrom = $a;
-            type Error = <<Self as TryMigrate>::TryFrom as TryMigrate>::Error;
+macro_rules! try_migrate_toml_chain {
+    // Base case
+    (error: $err:ident, chain: [$a:ident] $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: toml::Deserializer::new, chain: [$a])
+    };
+    // Position variant
+    (chain: [$a:ident], error: $err:ident $(,)?) => {
+        $crate::try_migrate_toml_chain!(error: $err, chain: [$a]);
+    };
+    // Rest case
+    (error: $err:ident, chain: [$a:ident, $($rest:ident),+] $(,)?) => (
+        // Call the base case to link A => A
+        $crate::try_migrate_toml_chain!(error: $err, chain: [$a]);
+
+        // Link the rest i.e. A => B, B => C, etc.
+        $crate::try_migrate_link!($a, $($rest),+);
+    );
+    // Position variant
+    (chain: [$a:ident, $($rest:ident),+], error: $err:ident $(,)?) => (
+        $crate::try_migrate_toml_chain!(error: $err, chain: [$a, $($rest),+])
+    );
+}
+
+/// A macro to help define infallible [`Migrate`] based migrations with an arbitrary deserializer.
+///
+/// The argument passed to `deserializer:` in the macro should be a function that returns an `impl Deserializer`.
+///
+/// For a fallible migration chain see [`try_migrate_deserializer_chain!`].
+///
+/// # Example
+///
+/// ```rust
+/// use magic_migrate::{Migrate, migrate_deserializer_chain};
+///
+/// use serde::{Deserialize, Serialize, de::Deserializer};
+/// use chrono::{DateTime, Utc};
+/// use std::convert::Infallible;
+///
+/// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
+/// struct PersonV1 {
+///     name: String
+/// }
+///
+/// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
+/// struct PersonV2 {
+///     name: String,
+///     updated_at: DateTime<Utc>
+/// }
+///
+/// // First define how to map from one struct to another
+/// impl From<PersonV1> for PersonV2 {
+///     fn from(value: PersonV1) -> Self {
+///         PersonV2 {
+///             name: value.name.clone(),
+///             updated_at: Utc::now()
+///         }
+///     }
+/// }
+///
+/// migrate_deserializer_chain!(
+///     deserializer: toml::Deserializer::new,
+///     chain: [PersonV1, PersonV2],
+/// );
+///
+/// // Now, given a serialized struct
+/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+///
+/// // Cannot deserialize PersonV1 toml into PersonV2
+/// let result = toml::from_str::<PersonV2>(&toml_string);
+///  assert!(result.is_err());
+///
+/// // Can deserialize to PersonV1 then migrate to PersonV2
+/// let person: PersonV2 = PersonV2::from_str_migrations(&toml_string).unwrap();
+/// assert_eq!(person.name, "Schneems".to_string());
+/// ```
+#[macro_export]
+macro_rules! migrate_deserializer_chain {
+    // Base case
+    (deserializer: $deser:path, chain: [$a:ident] $(,)?) => {
+        impl Migrate for $a {
+            type From = Self;
 
             fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
-                <Self as TryMigrate>::TryFrom::deserializer(input)
+                $deser(input)
             }
         }
-    );
-    ($a:ident, $b:ident, $($rest:ident),+) => (
-        // Call the base case to link A => B
-        $crate::try_migrate_link!($a, $b);
+    };
+    // Rest case
+    (deserializer: $deser:path, chain: [$a:ident, $($rest:ident),+] $(,)?) => (
+        // Call the base case to link A => A
+        $crate::migrate_deserializer_chain!(deserializer: $deser, chain: [$a]);
 
-        // Link B => C, and the rest
-        $crate::try_migrate_link!($b, $($rest),*)
-    )
+        // Link the rest i.e. A => B, B => C, etc.
+        $crate::migrate_link!($a, $($rest),+);
+    );
+
+    // Base case variants
+    (chain: [$a:ident], deserializer: $deser:path $(,)?) => {
+        $crate::migrate_deserializer_chain!(deserializer: $deser, chain: [$a]);
+    };
+    // Rest case variants
+    (chain: [$a:ident, $($rest:ident),+] , deserializer: $deser:path $(,)?) => {
+        $crate::migrate_deserializer_chain!(deserializer: $deser, chain: [$a, $($rest),+]);
+    };
+}
+
+/// A macro to help define [`TryMigrate`] based migrations with an arbitrary deserializer.
+///
+/// The argument passed to `deserializer:` in the macro should be a function that returns an `impl Deserializer`.
+///
+/// The argument passed to `error:` in the macro should be the error type that every error from the [`TryFrom`] implementations
+/// can be coherced [`Into`].
+///
+/// For an infallible migration chain see [`migrate_deserializer_chain!`].
+///
+/// ## Example
+///
+/// ```rust
+/// use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
+///
+/// use serde::{Deserialize, Serialize, de::Deserializer};
+/// use chrono::{DateTime, Utc};
+/// use std::convert::Infallible;
+///
+/// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
+/// struct PersonV1 {
+///     name: String
+/// }
+///
+/// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
+/// struct PersonV2 {
+///     name: String,
+///     updated_at: DateTime<Utc>
+/// }
+///
+/// // First define how to map from one struct to another
+/// impl TryFrom<PersonV1> for PersonV2 {
+///     type Error = NotRichard;
+///
+///     fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
+///         if &value.name == "Schneems" {
+///             Ok(PersonV2 {
+///                     name: value.name.clone(),
+///                     updated_at: Utc::now()
+///                })
+///         } else {
+///             Err(NotRichard { name: value.name.clone() })
+///         }
+///     }
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq)]
+/// struct NotRichard {
+///   name: String
+/// }
+///
+/// impl From<NotRichard> for PersonMigrationError {
+///     fn from(value: NotRichard) -> Self {
+///         PersonMigrationError::NotRichard(value)
+///     }
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq)]
+/// enum PersonMigrationError {
+///     NotRichard(NotRichard),
+/// }
+///
+/// try_migrate_deserializer_chain!(
+///     deserializer: toml::Deserializer::new,
+///     error: PersonMigrationError,
+///     chain: [PersonV1, PersonV2],
+/// );
+///
+/// // Now, given a serialized struct
+/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+///
+/// // Cannot deserialize PersonV1 toml into PersonV2
+/// let result = toml::from_str::<PersonV2>(&toml_string);
+///  assert!(result.is_err());
+///
+/// // Can deserialize to PersonV1 then migrate to PersonV2
+/// let person: PersonV2 = PersonV2::try_from_str_migrations(&toml_string).unwrap().unwrap();
+/// assert_eq!(person.name, "Schneems".to_string());
+///
+/// // Conversion can fail
+/// let result = PersonV2::try_from_str_migrations(&"name = 'Cinco'").unwrap();
+/// assert!(result.is_err());
+/// ```
+#[macro_export]
+macro_rules! try_migrate_deserializer_chain {
+    // Base case
+    (error: $err:ident, deserializer: $deser:path, chain: [$a:ident] $(,)?) => {
+        impl TryMigrate for $a {
+            type TryFrom = Self;
+            type Error = $err;
+
+            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+                $deser(input)
+            }
+        }
+        impl From<Infallible> for $err {
+            fn from(_value: Infallible) -> Self {
+                unreachable!()
+            }
+        }
+    };
+    // Rest case
+    (error: $err:ident, deserializer: $deser:path, chain: [$a:ident, $($rest:ident),+] $(,)?) => (
+        // Call the base case to link A => A
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+
+        // Link the rest i.e. A => B, B => C, etc.
+        $crate::try_migrate_link!($a, $($rest),+);
+    );
+
+    // Base case variants
+    (error: $err:ident, chain: [$a:ident], deserializer: $deser:path $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+    };
+    (chain: [$a:ident], deserializer: $deser:path, error: $err:ident $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+    };
+    (chain: [$a:ident], error: $err:ident, deserializer: $deser:path $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+    };
+    (deserializer: $deser:path, chain: [$a:ident], error: $err:ident $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+    };
+    (deserializer: $deser:path, error: $err:ident, chain: [$a:ident], $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a]);
+    };
+    // Rest case variants
+    (error: $err:ident, chain: [$a:ident, $($rest:ident),+] , deserializer: $deser:path $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
+    };
+    (chain: [$a:ident, $($rest:ident),+], deserializer: $deser:path, error: $err:ident $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
+    };
+    (chain: [$a:ident, $($rest:ident),+], error: $err:ident, deserializer: $deser:path $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
+    };
+    (deserializer: $deser:path, chain: [$a:ident, $($rest:ident),+], error: $err:ident $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
+    };
+    (deserializer: $deser:path, error: $err:ident, chain: [$a:ident, $($rest:ident),+] $(,)?) => {
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
+    };
 }
