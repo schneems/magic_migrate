@@ -657,6 +657,13 @@ macro_rules! migrate_deserializer_chain {
 ///     updated_at: DateTime<Utc>
 /// }
 ///
+/// #[derive(Deserialize, Serialize, Debug)]
+/// #[serde(deny_unknown_fields)]
+/// struct PersonV3 {
+///     full_name: String,
+///     updated_at: DateTime<Utc>
+/// }
+///
 /// // First define how to map from one struct to another
 /// impl TryFrom<PersonV1> for PersonV2 {
 ///     type Error = NotRichard;
@@ -670,6 +677,17 @@ macro_rules! migrate_deserializer_chain {
 ///         } else {
 ///             Err(NotRichard { name: value.name.clone() })
 ///         }
+///     }
+/// }
+///
+/// impl TryFrom<PersonV2> for PersonV3 {
+///     type Error = NotRichard;
+///
+///     fn try_from(value: PersonV2) -> Result<Self, NotRichard> {
+///        Ok(PersonV3 {
+///           full_name: value.name.clone(),
+///           updated_at: value.updated_at
+///        })
 ///     }
 /// }
 ///
@@ -690,9 +708,9 @@ macro_rules! migrate_deserializer_chain {
 /// }
 ///
 /// try_migrate_deserializer_chain!(
-///     deserializer: toml::Deserializer::new,
+///     chain: [PersonV1, PersonV2, PersonV3],
 ///     error: PersonMigrationError,
-///     chain: [PersonV1, PersonV2],
+///     deserializer: toml::Deserializer::new,
 /// );
 ///
 /// // Now, given a serialized struct
