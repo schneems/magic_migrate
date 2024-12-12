@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.2.1 - 2024/12/12
+
 - Fix: Missing semicolons caused compilation errors when using 3 or more values in a chain. This is now fixed (https://github.com/schneems/magic_migrate/pull/7)
 
 ## 0.2.0 - 2024/05/12
