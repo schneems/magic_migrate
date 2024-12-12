@@ -203,7 +203,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// // support `From<Infallible>`
 /// impl From<Infallible> for PersonMigrationError {
 ///     fn from(_value: Infallible) -> Self {
-///       unreachable!()
+///       unreachable!();
 ///     }
 /// }
 ///
@@ -335,8 +335,8 @@ macro_rules! migrate_link {
         $crate::migrate_link!($a, $b);
 
         // Link B => C, and the rest
-        $crate::migrate_link!($b, $($rest),*)
-    )
+        $crate::migrate_link!($b, $($rest),*);
+    );
 }
 
 /// Links each struct passed in to each other to build a [`Migrate`] link chain.
@@ -361,7 +361,7 @@ macro_rules! migrate_link {
 /// # struct UserV2;
 /// # impl From<UserV1> for UserV2 {
 /// #   fn from(value: UserV1) -> Self {
-/// #     unimplemented!()
+/// #     unimplemented!();
 /// #   }
 /// # }
 /// #
@@ -369,7 +369,7 @@ macro_rules! migrate_link {
 /// # struct UserV3;
 /// # impl From<UserV2> for UserV3 {
 /// #   fn from(value: UserV2) -> Self {
-/// #     unimplemented!()
+/// #     unimplemented!();
 /// #   }
 /// # }
 ///
@@ -397,7 +397,7 @@ macro_rules! migrate_toml_chain {
             deserializer: toml::Deserializer::new,
             chain: [$a, $($rest),+]
         );
-    )
+    );
 }
 
 /// Macro for linking structs together in an infallible [`TryMigrate`] migration chain
@@ -434,8 +434,8 @@ macro_rules! try_migrate_link {
         $crate::try_migrate_link!($a, $b);
 
         // Link B => C, and the rest
-        $crate::try_migrate_link!($b, $($rest),*)
-    )
+        $crate::try_migrate_link!($b, $($rest),*);
+    );
 }
 
 /// A macro to help define [`TryMigrate`] based migrations
@@ -521,7 +521,7 @@ macro_rules! try_migrate_link {
 macro_rules! try_migrate_toml_chain {
     // Base case
     (error: $err:ident, chain: [$a:ident] $(,)?) => {
-        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: toml::Deserializer::new, chain: [$a])
+        $crate::try_migrate_deserializer_chain!(error: $err, deserializer: toml::Deserializer::new, chain: [$a]);
     };
     // Position variant
     (chain: [$a:ident], error: $err:ident $(,)?) => {
@@ -537,7 +537,7 @@ macro_rules! try_migrate_toml_chain {
     );
     // Position variant
     (chain: [$a:ident, $($rest:ident),+], error: $err:ident $(,)?) => (
-        $crate::try_migrate_toml_chain!(error: $err, chain: [$a, $($rest),+])
+        $crate::try_migrate_toml_chain!(error: $err, chain: [$a, $($rest),+]);
     );
 }
 
@@ -724,7 +724,7 @@ macro_rules! try_migrate_deserializer_chain {
         }
         impl From<Infallible> for $err {
             fn from(_value: Infallible) -> Self {
-                unreachable!()
+                unreachable!();
             }
         }
     };
