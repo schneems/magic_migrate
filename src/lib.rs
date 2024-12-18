@@ -3,7 +3,7 @@
 use serde::de::DeserializeOwned;
 use serde::Deserializer;
 use std::any::{Any, TypeId};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 /// Use the [`Migrate`] trait when structs can be infallibly migrated
 /// from one version to the next. Use the [`TryMigrate`] trait when
@@ -192,8 +192,9 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// //
 /// // Because the migration can fail we need to resolve
 /// // error types.
-/// #[derive(Debug, Eq, PartialEq)]
+/// #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 /// enum PersonMigrationError {
+///     #[error("Not Richard {0:?}")]
 ///     NotRichard(NotRichard),
 /// }
 ///
@@ -267,7 +268,9 @@ pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
     fn deserializer<'de>(input: &str) -> impl Deserializer<'de>;
 
     type Error: From<<Self as TryFrom<<Self as TryMigrate>::TryFrom>>::Error>
-        + From<<<Self as TryMigrate>::TryFrom as TryMigrate>::Error>;
+        + From<<<Self as TryMigrate>::TryFrom as TryMigrate>::Error>
+        + Display
+        + Debug;
 
     #[must_use]
     fn try_from_str_migrations(input: &str) -> Option<Result<Self, <Self as TryMigrate>::Error>> {
@@ -492,8 +495,9 @@ macro_rules! try_migrate_link {
 ///     }
 /// }
 ///
-/// #[derive(Debug, Eq, PartialEq)]
+/// #[derive(thiserror::Error, Debug, Eq, PartialEq)]
 /// enum PersonMigrationError {
+///     #[error("Not Richard {0:?}")]
 ///     NotRichard(NotRichard),
 /// }
 ///
@@ -684,8 +688,9 @@ macro_rules! migrate_deserializer_chain {
 ///     }
 /// }
 ///
-/// #[derive(Debug, Eq, PartialEq)]
+/// #[derive(thiserror::Error, Debug, Eq, PartialEq)]
 /// enum PersonMigrationError {
+///     #[error("Not Richard {0:?}")]
 ///     NotRichard(NotRichard),
 /// }
 ///
