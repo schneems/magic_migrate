@@ -108,8 +108,9 @@ impl From<NotRichard> for PersonMigrationError {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
 enum PersonMigrationError {
+    #[error("Not Richard {0:?}")]
     NotRichard(NotRichard),
 }
 
