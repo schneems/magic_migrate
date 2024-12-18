@@ -1,6 +1,6 @@
 [package]
 name = "magic_migrate"
-version = "0.2.1"
+version = "1.0.0"
 edition = "2021"
 license = "MIT"
 description = "Automagically load and migrate deserialized structs to the latest version"

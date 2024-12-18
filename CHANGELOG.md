@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.0.0 - 2024/12/18
+
 - Change: `TryMigrate::Error` must now be `Display` + `Debug` ()
 
 ## 0.2.1 - 2024/12/12
