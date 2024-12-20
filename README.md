@@ -38,12 +38,11 @@ Once defined, invoke migrations via the `try_from_str_migrations` associated fun
 To define migrations you can use a macro like this:
 
 ```ignore
-use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
-use serde::de::Deserializer;
+use magic_migrate::TryMigrate;
 
 // ...
 
-try_migrate_deserializer_chain!(
+magic_migrate::try_migrate_deserializer_chain!(
     deserializer: toml::Deserializer::new,
     error: PersonMigrationError,
     chain: [PersonV1, PersonV2],
@@ -57,12 +56,10 @@ try_migrate_deserializer_chain!(
 Full example:
 
 ```rust
-use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
-use serde::de::Deserializer;
+use magic_migrate::TryMigrate;
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use std::convert::Infallible;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -76,7 +73,7 @@ struct PersonV2 {
     name: String,
     updated_at: DateTime<Utc>
 }
-try_migrate_deserializer_chain!( // <=========== HERE
+magic_migrate::try_migrate_deserializer_chain!( // <=========== HERE
     deserializer: toml::Deserializer::new,
     error: PersonMigrationError,
     chain: [PersonV1, PersonV2],

@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 use serde::de::DeserializeOwned;
-use serde::Deserializer;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Display};
 
@@ -40,7 +39,6 @@ use std::fmt::{Debug, Display};
 ///
 /// ```rust
 /// use magic_migrate::Migrate;
-/// use serde::de::Deserializer;
 ///
 #[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
@@ -54,7 +52,7 @@ use std::fmt::{Debug, Display};
 /// impl Migrate for PersonV1 {
 ///     type From = Self;
 ///
-///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
 ///         toml::Deserializer::new(input)
 ///     }
 /// }
@@ -66,7 +64,7 @@ use std::fmt::{Debug, Display};
 /// impl Migrate for PersonV2 {
 ///     type From = PersonV1;
 ///
-///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
 ///         <Self as Migrate>::From::deserializer(input)
 ///     }
 /// }
@@ -91,7 +89,7 @@ use std::fmt::{Debug, Display};
 pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
     type From: Migrate;
 
-    fn deserializer<'de>(input: &str) -> impl Deserializer<'de>;
+    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de>;
 
     fn from_str_migrations(input: &str) -> Option<Self> {
         if let Ok(instance) = Self::deserialize(Self::deserializer(input)) {
@@ -128,8 +126,6 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///
 /// ```rust
 /// use magic_migrate::TryMigrate;
-/// use serde::de::Deserializer;
-///
 #[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
 /// // First define a migration on the beginning of the chain
@@ -143,7 +139,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///     type TryFrom = Self;
 ///     type Error = PersonMigrationError;
 ///
-///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
 ///         toml::Deserializer::new(input)
 ///     }
 /// }
@@ -165,7 +161,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///     type TryFrom = PersonV1;
 ///     type Error = PersonMigrationError;
 ///
-///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
 ///         <Self as TryMigrate>::TryFrom::deserializer(input)
 ///     }
 /// }
@@ -195,7 +191,7 @@ pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
 
     /// Tell magic migrate how you want to deserialize your strings
     /// into structs
-    fn deserializer<'de>(input: &str) -> impl Deserializer<'de>;
+    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de>;
 
     type Error: From<<Self as TryFrom<<Self as TryMigrate>::TryFrom>>::Error>
         + From<<<Self as TryMigrate>::TryFrom as TryMigrate>::Error>
@@ -228,7 +224,7 @@ where
 {
     type TryFrom = <Self as Migrate>::From;
 
-    fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
         <Self as Migrate>::deserializer(input)
     }
 
@@ -258,7 +254,7 @@ macro_rules! migrate_link {
         impl Migrate for $b {
             type From = $a;
 
-            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
                 <Self as Migrate>::From::deserializer(input)
             }
         }
@@ -285,7 +281,6 @@ macro_rules! migrate_link {
 ///
 /// ```no_run
 /// use magic_migrate::Migrate;
-/// use serde::de::Deserializer;
 #[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
 /// // - Link PersonV1 => PersonV1 and set the toml deserializer
@@ -335,7 +330,7 @@ macro_rules! try_migrate_link {
             type TryFrom = $a;
             type Error = <<Self as TryMigrate>::TryFrom as TryMigrate>::Error;
 
-            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
                 <Self as TryMigrate>::TryFrom::deserializer(input)
             }
         }
@@ -358,8 +353,6 @@ macro_rules! try_migrate_link {
 ///
 /// ```rust
 /// use magic_migrate::TryMigrate;
-/// use serde::Deserializer;
-///
 #[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
 /// magic_migrate::try_migrate_toml_chain!(
@@ -421,7 +414,6 @@ macro_rules! try_migrate_toml_chain {
 ///
 /// ```rust
 /// use magic_migrate::Migrate;
-/// use serde::de::Deserializer;
 #[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
 /// magic_migrate::migrate_deserializer_chain!(
@@ -447,7 +439,7 @@ macro_rules! migrate_deserializer_chain {
         impl Migrate for $a {
             type From = Self;
 
-            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
                 $deser(input)
             }
         }
@@ -484,7 +476,6 @@ macro_rules! migrate_deserializer_chain {
 ///
 /// ```rust
 /// use magic_migrate::TryMigrate;
-/// use serde::Deserializer;
 #[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
 /// magic_migrate::try_migrate_deserializer_chain!(
@@ -521,12 +512,12 @@ macro_rules! try_migrate_deserializer_chain {
             type TryFrom = Self;
             type Error = $err;
 
-            fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
+            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
                 $deser(input)
             }
         }
-        impl From<Infallible> for $err {
-            fn from(_value: Infallible) -> Self {
+        impl From<std::convert::Infallible> for $err {
+            fn from(_value: std::convert::Infallible) -> Self {
                 unreachable!();
             }
         }
