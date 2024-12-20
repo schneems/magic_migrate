@@ -1,8 +1,10 @@
 ## Unreleased
 
+- Fix: Macro users no longer need to import `std::convert::Infallible` or `serde::de::Deserializer` (https://github.com/schneems/magic_migrate/pull/14)
+
 ## 1.0.0 - 2024/12/18
 
-- Change: `TryMigrate::Error` must now be `Display` + `Debug` ()
+- Change: `TryMigrate::Error` must now be `Display` + `Debug` (https://github.com/schneems/magic_migrate/pull/11)
 
 ## 0.2.1 - 2024/12/12
 
