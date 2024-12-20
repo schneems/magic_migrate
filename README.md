@@ -62,7 +62,6 @@ use serde::de::Deserializer;
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use std::convert::Infallible;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(deny_unknown_fields)]
