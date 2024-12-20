@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.0.1
+
 - Fix: Macro users no longer need to import `std::convert::Infallible` or `serde::de::Deserializer` (https://github.com/schneems/magic_migrate/pull/14)
 
 ## 1.0.0 - 2024/12/18
