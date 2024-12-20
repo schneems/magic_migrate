@@ -1,0 +1,27 @@
+# use chrono::{DateTime, Utc};
+# use serde::{Deserialize, Serialize};
+# use std::convert::Infallible;
+#
+# #[derive(Deserialize, Serialize, Debug)]
+# #[serde(deny_unknown_fields)]
+# struct PersonV1 {
+#     name: String,
+# }
+#
+# #[derive(Deserialize, Serialize, Debug)]
+# #[serde(deny_unknown_fields)]
+# struct PersonV2 {
+#     name: String,
+#     updated_at: DateTime<Utc>,
+# }
+#
+# // First define how to map from one struct to another
+# impl From<PersonV1> for PersonV2 {
+#     fn from(value: PersonV1) -> Self {
+#         PersonV2 {
+#             name: value.name.clone(),
+#             updated_at: Utc::now(),
+#         }
+#     }
+# }
+#

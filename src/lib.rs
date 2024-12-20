@@ -39,33 +39,10 @@ use std::fmt::{Debug, Display};
 /// ## Infailable migration Example ([`Migrate`] trait)
 ///
 /// ```rust
-/// use magic_migrate::{Migrate};
+/// use magic_migrate::Migrate;
+/// use serde::de::Deserializer;
 ///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl From<PersonV1> for PersonV2 {
-///     fn from(value: PersonV1) -> Self {
-///         PersonV2 {
-///             name: value.name.clone(),
-///             updated_at: Utc::now()
-///         }
-///     }
-/// }
+#[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
 /// // First define a migration on the beginning of the chain
 /// //
@@ -94,12 +71,14 @@ use std::fmt::{Debug, Display};
 ///     }
 /// }
 ///
-/// // That's it! This is basically the same thing that the `migrate_toml_chain`
+/// // That's it! This is basically the same thing that the [`migrate_toml_chain`]
 /// // macro did for you, but using the trait directly allows for any deserializer
 /// // you want.
 ///
 /// // Now, given a serialized struct
-/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+/// let toml_string = toml::to_string(&PersonV1 {
+///     name: "Schneems".to_string(),
+/// }).unwrap();
 ///
 /// // Cannot deserialize PersonV1 toml into PersonV2
 /// let result = toml::from_str::<PersonV2>(&toml_string);
@@ -148,71 +127,10 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// # Example
 ///
 /// ```rust
-/// use magic_migrate::{TryMigrate};
+/// use magic_migrate::TryMigrate;
+/// use serde::de::Deserializer;
 ///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-/// use std::convert::Infallible;
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl TryFrom<PersonV1> for PersonV2 {
-///     type Error = NotRichard;
-///
-///     fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
-///         if &value.name == "Schneems" {
-///             Ok(PersonV2 {
-///                     name: value.name.clone(),
-///                     updated_at: Utc::now()
-///                })
-///         } else {
-///             Err(NotRichard { name: value.name.clone() })
-///         }
-///     }
-/// }
-///
-/// #[derive(Debug, Eq, PartialEq)]
-/// struct NotRichard {
-///   name: String
-/// }
-///
-/// // Create an error struct for return type
-/// //
-/// // Because the migration can fail we need to resolve
-/// // error types.
-/// #[derive(Debug, thiserror::Error, Eq, PartialEq)]
-/// enum PersonMigrationError {
-///     #[error("Not Richard {0:?}")]
-///     NotRichard(NotRichard),
-/// }
-///
-///
-/// // The first struct in the chain always
-/// // references itself, so the error type must always
-/// // support `From<Infallible>`
-/// impl From<Infallible> for PersonMigrationError {
-///     fn from(_value: Infallible) -> Self {
-///       unreachable!();
-///     }
-/// }
-///
-/// impl From<NotRichard> for PersonMigrationError {
-///     fn from(value: NotRichard) -> Self {
-///         PersonMigrationError::NotRichard(value)
-///     }
-/// }
+#[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
 /// // First define a migration on the beginning of the chain
 /// //
@@ -227,6 +145,15 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///
 ///     fn deserializer<'de>(input: &str) -> impl Deserializer<'de> {
 ///         toml::Deserializer::new(input)
+///     }
+/// }
+///
+/// // The first struct references itself, in the chain (it's how we know
+/// // to stop iterating). A by-product is that the error in `TryMigrate`
+/// // must be able to take `Infallible` even though that error cannot be raised
+/// impl From<std::convert::Infallible> for PersonMigrationError {
+///     fn from(_value: std::convert::Infallible) -> Self {
+///         unreachable!();
 ///     }
 /// }
 ///
@@ -246,7 +173,10 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// // That's it! Now, you can use it.
 ///
 /// // Given a serialized struct
-/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+/// let toml_string = toml::to_string(&PersonV1 {
+///     name: "Schneems".to_string(),
+///     title: Some("Señor Developer".to_string())
+/// }).unwrap();
 ///
 /// // Cannot deserialize PersonV1 toml into PersonV2
 /// let result = toml::from_str::<PersonV2>(&toml_string);
@@ -256,8 +186,8 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// let person: PersonV2 = PersonV2::try_from_str_migrations(&toml_string).unwrap().unwrap();
 /// assert_eq!(person.name, "Schneems".to_string());
 ///
-/// // Conversion can fail
-/// let result = PersonV2::try_from_str_migrations(&"name = 'Should Fail'").unwrap();
+/// // Conversion can fail (missing title)
+/// let result = PersonV2::try_from_str_migrations(&"name = 'Schneems'").unwrap();
 /// assert!(result.is_err());
 /// ```
 pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
@@ -354,36 +284,14 @@ macro_rules! migrate_link {
 /// See [`crate`] module docs for a full example use case
 ///
 /// ```no_run
-/// use magic_migrate::{Migrate, migrate_toml_chain};
+/// use magic_migrate::Migrate;
+/// use serde::de::Deserializer;
+#[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
-/// # use serde::{Deserialize, Serialize, de::Deserializer};
-/// # #[derive(Deserialize, Serialize, Debug)]
-/// # struct UserV1;
-/// #
-/// # #[derive(Deserialize, Serialize, Debug)]
-/// # struct UserV2;
-/// # impl From<UserV1> for UserV2 {
-/// #   fn from(value: UserV1) -> Self {
-/// #     unimplemented!();
-/// #   }
-/// # }
-/// #
-/// # #[derive(Deserialize, Serialize, Debug)]
-/// # struct UserV3;
-/// # impl From<UserV2> for UserV3 {
-/// #   fn from(value: UserV2) -> Self {
-/// #     unimplemented!();
-/// #   }
-/// # }
-///
-/// // ...
-///
-/// // - Link UserV1 => UserV1 and set the toml deserializer
-/// // - Link UserV1 => UserV2
-/// // - Link UserV2 => UserV3
-/// migrate_toml_chain!(UserV1, UserV2, UserV3);
+/// // - Link PersonV1 => PersonV1 and set the toml deserializer
+/// // - Link PersonV1 => PersonV2
+/// magic_migrate::migrate_toml_chain!(PersonV1, PersonV2);
 /// ```
-///
 #[macro_export(local_inner_macros)]
 macro_rules! migrate_toml_chain {
     // Base case
@@ -449,67 +357,24 @@ macro_rules! try_migrate_link {
 /// # Example
 ///
 /// ```rust
-/// use magic_migrate::{TryMigrate, try_migrate_toml_chain};
+/// use magic_migrate::TryMigrate;
+/// use serde::Deserializer;
 ///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-/// use std::convert::Infallible;
+#[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl TryFrom<PersonV1> for PersonV2 {
-///     type Error = NotRichard;
-///
-///     fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
-///         if &value.name == "Schneems" {
-///             Ok(PersonV2 {
-///                     name: value.name.clone(),
-///                     updated_at: Utc::now()
-///                })
-///         } else {
-///             Err(NotRichard { name: value.name.clone() })
-///         }
-///     }
-/// }
-///
-/// #[derive(Debug, Eq, PartialEq)]
-/// struct NotRichard {
-///   name: String
-/// }
-///
-/// impl From<NotRichard> for PersonMigrationError {
-///     fn from(value: NotRichard) -> Self {
-///         PersonMigrationError::NotRichard(value)
-///     }
-/// }
-///
-/// #[derive(thiserror::Error, Debug, Eq, PartialEq)]
-/// enum PersonMigrationError {
-///     #[error("Not Richard {0:?}")]
-///     NotRichard(NotRichard),
-/// }
-///
-/// try_migrate_toml_chain!(
+/// magic_migrate::try_migrate_toml_chain!(
 ///     error: PersonMigrationError,
 ///     chain: [PersonV1, PersonV2],
 /// );
 ///
 /// // Now, given a serialized struct
-/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+/// let toml_string = toml::to_string(&PersonV1 {
+///     name: "Schneems".to_string(),
+///     title: Some("Chief Taco Officer".to_string())
+/// })
+/// .unwrap();
 ///
-/// // Cannot deserialize PersonV1 toml into PersonV2
+/// // Cannot deserialize PersonV1 toml directly into PersonV2
 /// let result = toml::from_str::<PersonV2>(&toml_string);
 ///  assert!(result.is_err());
 ///
@@ -517,9 +382,10 @@ macro_rules! try_migrate_link {
 /// let person: PersonV2 = PersonV2::try_from_str_migrations(&toml_string).unwrap().unwrap();
 /// assert_eq!(person.name, "Schneems".to_string());
 ///
-/// // Conversion can fail
-/// let result = PersonV2::try_from_str_migrations(&"name = 'Cinco'").unwrap();
+/// // Conversion can fail (missing a Title)
+/// let result = PersonV2::try_from_str_migrations(&"name = 'Schneems'").unwrap();
 /// assert!(result.is_err());
+/// assert!(matches!(result, Err(PersonMigrationError::TitleCannotBeEmpty)));
 /// ```
 #[macro_export]
 macro_rules! try_migrate_toml_chain {
@@ -554,36 +420,11 @@ macro_rules! try_migrate_toml_chain {
 /// # Example
 ///
 /// ```rust
-/// use magic_migrate::{Migrate, migrate_deserializer_chain};
+/// use magic_migrate::Migrate;
+/// use serde::de::Deserializer;
+#[doc = include_str!("fixtures/personV1_V2.txt")]
 ///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-/// use std::convert::Infallible;
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl From<PersonV1> for PersonV2 {
-///     fn from(value: PersonV1) -> Self {
-///         PersonV2 {
-///             name: value.name.clone(),
-///             updated_at: Utc::now()
-///         }
-///     }
-/// }
-///
-/// migrate_deserializer_chain!(
+/// magic_migrate::migrate_deserializer_chain!(
 ///     deserializer: toml::Deserializer::new,
 ///     chain: [PersonV1, PersonV2],
 /// );
@@ -642,68 +483,24 @@ macro_rules! migrate_deserializer_chain {
 /// ## Example
 ///
 /// ```rust
-/// use magic_migrate::{TryMigrate, try_migrate_deserializer_chain};
+/// use magic_migrate::TryMigrate;
+/// use serde::Deserializer;
+#[doc = include_str!("fixtures/try_personV1_V2.txt")]
 ///
-/// use serde::{Deserialize, Serialize, de::Deserializer};
-/// use chrono::{DateTime, Utc};
-/// use std::convert::Infallible;
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV1 {
-///     name: String
-/// }
-///
-/// #[derive(Deserialize, Serialize, Debug)]
-/// #[serde(deny_unknown_fields)]
-/// struct PersonV2 {
-///     name: String,
-///     updated_at: DateTime<Utc>
-/// }
-///
-/// // First define how to map from one struct to another
-/// impl TryFrom<PersonV1> for PersonV2 {
-///     type Error = NotRichard;
-///
-///     fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
-///         if &value.name == "Schneems" {
-///             Ok(PersonV2 {
-///                     name: value.name.clone(),
-///                     updated_at: Utc::now()
-///                })
-///         } else {
-///             Err(NotRichard { name: value.name.clone() })
-///         }
-///     }
-/// }
-///
-/// #[derive(Debug, Eq, PartialEq)]
-/// struct NotRichard {
-///   name: String
-/// }
-///
-/// impl From<NotRichard> for PersonMigrationError {
-///     fn from(value: NotRichard) -> Self {
-///         PersonMigrationError::NotRichard(value)
-///     }
-/// }
-///
-/// #[derive(thiserror::Error, Debug, Eq, PartialEq)]
-/// enum PersonMigrationError {
-///     #[error("Not Richard {0:?}")]
-///     NotRichard(NotRichard),
-/// }
-///
-/// try_migrate_deserializer_chain!(
+/// magic_migrate::try_migrate_deserializer_chain!(
 ///     deserializer: toml::Deserializer::new,
 ///     error: PersonMigrationError,
 ///     chain: [PersonV1, PersonV2],
 /// );
 ///
 /// // Now, given a serialized struct
-/// let toml_string = toml::to_string(&PersonV1 { name: "Schneems".to_string() }).unwrap();
+/// let toml_string = toml::to_string(&PersonV1 {
+///     name: "Schneems".to_string(),
+///     title: Some("Chief Taco Officer".to_string())
+/// })
+/// .unwrap();
 ///
-/// // Cannot deserialize PersonV1 toml into PersonV2
+/// // Cannot deserialize PersonV1 toml directly into PersonV2
 /// let result = toml::from_str::<PersonV2>(&toml_string);
 ///  assert!(result.is_err());
 ///
@@ -711,9 +508,10 @@ macro_rules! migrate_deserializer_chain {
 /// let person: PersonV2 = PersonV2::try_from_str_migrations(&toml_string).unwrap().unwrap();
 /// assert_eq!(person.name, "Schneems".to_string());
 ///
-/// // Conversion can fail
-/// let result = PersonV2::try_from_str_migrations(&"name = 'Cinco'").unwrap();
+/// // Conversion can fail (missing a Title)
+/// let result = PersonV2::try_from_str_migrations(&"name = 'Schneems'").unwrap();
 /// assert!(result.is_err());
+/// assert!(matches!(result, Err(PersonMigrationError::TitleCannotBeEmpty)));
 /// ```
 #[macro_export]
 macro_rules! try_migrate_deserializer_chain {
