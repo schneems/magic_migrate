@@ -15,16 +15,38 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
     let container = Container::from_ast(&ast)?;
     let error = match &container {
         Container::ErrorFromPrior { identity, prior } => {
-            quote::quote! { <#identity as TryFrom<#prior>>::Error }
+            if prior.get_ident().is_some_and(|p| p == identity) {
+                quote::quote! { std::convert::Infallible }
+            } else {
+                quote::quote! { <#identity as TryFrom<#prior>>::Error }
+            }
         }
         Container::Full {
             identity: _,
             prior: _,
             error,
-        } => quote::quote! { #error },
+        } => quote::quote! {
+            #error
+        },
     };
 
-    let code = match container {
+    // let maybe_infallible = match &container {
+    //     Container::ErrorFromPrior { .. } => {
+    //         quote::quote! {}
+    //     }
+    //     Container::Full { error, .. } => quote::quote! {
+    //         impl std::convert::From<std::convert::Infallible> for #error {
+    //             fn from(_value: std::convert::Infallible) -> Self {
+    //                 unreachable!()
+    //             }
+    //         }
+    //     },
+    // };
+    // eprintln!("===========");
+    // eprintln!("{container:?}");
+    // eprintln!("{maybe_infallible:?}");
+
+    let code = match &container {
         Container::ErrorFromPrior { identity, prior }
         | Container::Full {
             identity,
@@ -32,12 +54,6 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
             error: _,
         } => {
             quote::quote! {
-                impl std::convert::From<std::convert::Infallible> for #error {
-                    fn from(_value: std::convert::Infallible) -> Self {
-                        unreachable!();
-                    }
-                }
-
                 impl TryMigrate for #identity {
                     type TryFrom = #prior;
                     type Error = #error;

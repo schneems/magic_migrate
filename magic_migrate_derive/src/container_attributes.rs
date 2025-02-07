@@ -99,17 +99,17 @@ impl Container {
                 .into_iter()
             {
                 match attr {
-                    ParsedAttribute::prior(ref ident) => {
+                    ParsedAttribute::prior(ref path) => {
                         checked_set(
                             &Into::<KnownAttribute>::into(attr.clone()),
-                            ident,
+                            path,
                             &mut maybe_prior,
                         )?;
                     }
-                    ParsedAttribute::error(ref ident) => {
+                    ParsedAttribute::error(ref path) => {
                         checked_set(
                             &Into::<KnownAttribute>::into(attr.clone()),
-                            ident,
+                            path,
                             &mut maybe_error,
                         )?;
                     }

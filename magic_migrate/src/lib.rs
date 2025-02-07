@@ -516,7 +516,7 @@ macro_rules! try_migrate_deserializer_chain {
                 $deser(input)
             }
         }
-        impl From<std::convert::Infallible> for $err {
+        impl std::convert::From<std::convert::Infallible> for $err {
             fn from(_value: std::convert::Infallible) -> Self {
                 unreachable!();
             }
