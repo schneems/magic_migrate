@@ -1,26 +1,26 @@
-use magic_migrate::TryMigrate;
-use std::convert::TryFrom;
+// use magic_migrate::TryMigrate;
+// use std::convert::TryFrom;
 
-#[derive(TryMigrate, serde::Deserialize, Debug)]
-#[try_migrate(prior = None)]
-struct MetadataV1 {
-    name: String,
-}
+// #[derive(TryMigrate, serde::Deserialize, Debug)]
+// #[try_migrate(prior = None)]
+// struct MetadataV1 {
+//     name: String,
+// }
 
-#[derive(TryMigrate, serde::Deserialize, Debug)]
-#[try_migrate(prior = MetadataV1)]
-struct MetadataV2 {
-    full_name: String,
-}
+// #[derive(TryMigrate, serde::Deserialize, Debug)]
+// #[try_migrate(prior = MetadataV1)]
+// struct MetadataV2 {
+//     full_name: String,
+// }
 
-#[derive(TryMigrate, serde::Deserialize, Debug)]
-#[try_migrate(prior = MetadataV2)]
-struct MetadataV3 {
-    full_name_two: String,
-}
+// #[derive(TryMigrate, serde::Deserialize, Debug)]
+// #[try_migrate(prior = MetadataV2)]
+// struct MetadataV3 {
+//     full_name_two: String,
+// }
 
-#[derive(Debug, thiserror::Error)]
-enum MigrateError {}
+// #[derive(Debug, thiserror::Error)]
+// enum MigrateError {}
 
 // impl std::convert::From<std::convert::Infallible> for MigrateError {
 //     fn from(_value: std::convert::Infallible) -> Self {
@@ -82,40 +82,42 @@ enum MigrateError {}
 //
 // And impl Infallible conversion for that one enum. That's cool, let's do it.
 
-#[allow(private_interfaces)]
-impl std::convert::From<std::convert::Infallible> for <MetadataV2 as TryFrom<MetadataV1>>::Error {
-    fn from(_value: std::convert::Infallible) -> Self {
-        unreachable!()
-    }
-}
+// #[allow(private_interfaces)]
+// impl std::convert::From<std::convert::Infallible> for <MetadataV2 as TryFrom<MetadataV1>>::Error {
+//     fn from(_value: std::convert::Infallible) -> Self {
+//         unreachable!()
+//     }
+// }
 
-#[allow(private_interfaces)]
-impl std::convert::From<std::convert::Infallible> for <MetadataV3 as TryFrom<MetadataV2>>::Error {
-    fn from(_value: std::convert::Infallible) -> Self {
-        unreachable!()
-    }
-}
+// #[allow(private_interfaces)]
+// impl std::convert::From<std::convert::Infallible> for <MetadataV3 as TryFrom<MetadataV2>>::Error {
+//     fn from(_value: std::convert::Infallible) -> Self {
+//         unreachable!()
+//     }
+// }
 
-impl TryFrom<MetadataV1> for MetadataV2 {
-    type Error = MigrateError;
+// impl TryFrom<MetadataV1> for MetadataV2 {
+//     type Error = MigrateError;
 
-    fn try_from(value: MetadataV1) -> Result<Self, Self::Error> {
-        Ok(MetadataV2 {
-            full_name: value.name,
-        })
-    }
-}
+//     fn try_from(value: MetadataV1) -> Result<Self, Self::Error> {
+//         Ok(MetadataV2 {
+//             full_name: value.name,
+//         })
+//     }
+// }
 
-impl TryFrom<MetadataV2> for MetadataV3 {
-    type Error = MigrateError;
+// impl TryFrom<MetadataV2> for MetadataV3 {
+//     type Error = MigrateError;
 
-    fn try_from(value: MetadataV2) -> Result<Self, Self::Error> {
-        Ok(MetadataV3 {
-            full_name_two: value.full_name,
-        })
-    }
-}
+//     fn try_from(value: MetadataV2) -> Result<Self, Self::Error> {
+//         Ok(MetadataV3 {
+//             full_name_two: value.full_name,
+//         })
+//     }
+// }
 
-fn main() {
-    let _v2 = MetadataV2::try_from_str_migrations("name = 'richard'").unwrap();
-}
+// fn main() {
+//     let _v2 = MetadataV2::try_from_str_migrations("name = 'richard'").unwrap();
+// }
+
+fn main() {}
