@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "usage",
     "magic_migrate",
     "magic_migrate_derive",
 ]
@@ -15,5 +16,5 @@ documentation = "https://docs.rs/magic_migrate"
 
 [workspace.dependencies]
 pretty_assertions = "1.4.1"
-indoc = "2"
 serde = {version = "1.0", features = ["derive"] }
+toml = "0.8"

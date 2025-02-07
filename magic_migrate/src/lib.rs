@@ -564,3 +564,5 @@ macro_rules! try_migrate_deserializer_chain {
         $crate::try_migrate_deserializer_chain!(error: $err, deserializer: $deser, chain: [$a, $($rest),+]);
     };
 }
+
+pub use magic_migrate_derive::TryMigrate;
