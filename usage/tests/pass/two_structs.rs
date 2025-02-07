@@ -81,6 +81,57 @@
 // }
 //
 // And impl Infallible conversion for that one enum. That's cool, let's do it.
+//
+// Annnnnd there's a problem. That interface works great if you're adding only a single value at the end
+// but if you're building things up over time, then you'll end up with duplicate definitions for the same
+// structs i.e.
+//
+// #[try_migrate(prior = [MetadataV1, MetadataV2])]
+// struct MetadataV3 {}
+//
+// #[try_migrate(prior = [MetadataV1, MetadataV2, MetadataV3])]
+// struct MetadataV4 {}
+//
+// This would fail categorically. Unless...what if we had people do something like:
+//
+//
+// #[try_migrate(prior = [])]
+// struct MetadataV1 {}
+// #[try_migrate(prior = [MetadataV1])]
+// struct MetadataV2 {}
+// #[try_migrate(prior = [MetadataV1, MetadataV2])]
+// struct MetadataV3 {}
+// #[try_migrate(prior = [MetadataV2, MetadataV3])]
+// struct MetadataV4 {}
+//
+// I don't love it. I think I basically want the a `try_migrate` macro that's not a derive or attribute macro,
+// but just a plain ole `#[proc_macro]`.
+//
+// magic_migrate::try_migrate!(chain = [MetadataV1, MetadataV2, MetadataV3, MetadataV4])
+//
+// Which really makes more sense as the chain is more like a singleton. Alternatively:
+//
+// #[derive(TryMigrate)]
+// #[try_migrate(prior = None)]
+// struct MetadataV1 {}
+//
+// #[derive(TryMigrate)]
+// #[try_migrate(prior = MetadataV1)]
+// struct MetadataV2 {}
+//
+// #[derive(TryMigrate)]
+// #[try_migrate(prior = MetadataV2)]
+// struct MetadataV3 {}
+//
+// #[derive(TryMigrate)]
+// #[try_migrate(prior = MetadataV3)]
+// struct MetadataV4 {}
+//
+// But with this setup, then I don't have the visiblity to construct an error enum unless I introuce something else
+// ORRRRR I could introuce a GenericMigrationError that basically acts like Anyhow and accepts anything as a box dyn
+// thingy. I kinda like that. Optionally allow people to give their own errors. The derive interface is more intuitive
+// than slapping a random function in the middle of the page and it forces you to import the trait for use, which is what
+// I want. so maybe let's go with this :up:. Basically the same Interface I had before, with a different error
 
 // #[allow(private_interfaces)]
 // impl std::convert::From<std::convert::Infallible> for <MetadataV2 as TryFrom<MetadataV1>>::Error {
