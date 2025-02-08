@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Add: Introduce `magic_migrate::MigrateError` as an available generic error for receiving any `TryFrom::Error`.
+
 ## 1.0.1
 
 - Fix: Macro users no longer need to import `std::convert::Infallible` or `serde::de::Deserializer` (https://github.com/schneems/magic_migrate/pull/14)
