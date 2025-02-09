@@ -17,7 +17,7 @@ struct PersonV2 {
 
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
 #[error("Title cannot be empty")]
-struct TitleCannotBeEmpty;
+struct EmptyTitle;
 
 impl From<std::convert::Infallible> for PersonMigrationError {
     fn from(_value: std::convert::Infallible) -> Self {
@@ -25,25 +25,25 @@ impl From<std::convert::Infallible> for PersonMigrationError {
     }
 }
 
-impl From<TitleCannotBeEmpty> for PersonMigrationError {
-    fn from(_value: TitleCannotBeEmpty) -> Self {
-        PersonMigrationError::TitleCannotBeEmpty
+impl From<EmptyTitle> for PersonMigrationError {
+    fn from(value: EmptyTitle) -> Self {
+        PersonMigrationError::TitleCannotBeEmpty(value)
     }
 }
 
 #[derive(thiserror::Error, Debug, Eq, PartialEq)]
 enum PersonMigrationError {
     #[error("Title cannot be empty!!!")]
-    TitleCannotBeEmpty,
+    TitleCannotBeEmpty(EmptyTitle),
 }
 
 impl TryFrom<PersonV1> for PersonV2 {
-    type Error = TitleCannotBeEmpty;
+    type Error = EmptyTitle;
 
-    fn try_from(value: PersonV1) -> Result<Self, TitleCannotBeEmpty> {
+    fn try_from(value: PersonV1) -> Result<Self, Self::Error> {
         if let Some(title) = value.title {
             if title.is_empty() {
-                Err(TitleCannotBeEmpty)
+                Err(EmptyTitle)
             } else {
                 Ok(PersonV2 {
                     name: value.name,
@@ -51,7 +51,7 @@ impl TryFrom<PersonV1> for PersonV2 {
                 })
             }
         } else {
-            Err(TitleCannotBeEmpty)
+            Err(EmptyTitle)
         }
     }
 }
