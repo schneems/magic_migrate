@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use strum::IntoEnumIterator;
-use syn::spanned::Spanned;
-use syn::{parse::Parse, punctuated::Punctuated, Ident, Path, Token};
+use syn::{parse::Parse, punctuated::Punctuated, Ident, Token};
 
 const NAMESPACE: &str = "try_migrate";
 
@@ -10,12 +9,15 @@ const NAMESPACE: &str = "try_migrate";
 #[strum_discriminants(derive(strum::EnumIter, strum::Display, strum::EnumString))]
 #[strum_discriminants(name(KnownAttribute))]
 pub(crate) enum ParsedAttribute {
-    /// #[try_migrate(prior = <struct>)]
+    /// #[try_migrate(from = MetadataV1)] or #[try_migrate(from = None)]
     #[allow(non_camel_case_types)]
-    prior(Path),
-    /// #[try_migrate(error = <Container>)]
+    from(syn::Path),
+    /// #[try_migrate(error = magic_migrate::MigrateError)]
     #[allow(non_camel_case_types)]
-    error(Path),
+    error(syn::Path),
+    /// #[try_migrate(deserializer = toml::Deserializer::new)]
+    #[allow(non_camel_case_types)]
+    deserializer(syn::Path),
 }
 
 impl Parse for KnownAttribute {
@@ -41,45 +43,20 @@ impl Parse for ParsedAttribute {
         let key: KnownAttribute = input.parse()?;
         input.parse::<syn::Token![=]>()?;
         match key {
-            KnownAttribute::prior => Ok(ParsedAttribute::prior(input.parse()?)),
+            KnownAttribute::from => Ok(ParsedAttribute::from(input.parse()?)),
             KnownAttribute::error => Ok(ParsedAttribute::error(input.parse()?)),
+            KnownAttribute::deserializer => Ok(ParsedAttribute::deserializer(input.parse()?)),
         }
     }
 }
 
 /// Holds a fully parsed container (struct, enum, etc.), including attributes
 #[derive(Debug)]
-pub(crate) enum Container {
-    ErrorFromPrior {
-        identity: Ident,
-        prior: Path,
-    },
-    Full {
-        identity: Ident,
-        prior: Path,
-        error: Path,
-    },
-}
-
-fn checked_set(
-    key: &KnownAttribute,
-    value: &Path,
-    container: &mut Option<Path>,
-) -> Result<(), syn::Error> {
-    if let Some(last_set) = container {
-        let mut error = syn::Error::new(
-            value.span(),
-            format!("Duplicate definition for `#[{NAMESPACE}({key})]`."),
-        );
-        error.combine(syn::Error::new(
-            last_set.span(),
-            "First definition is here:",
-        ));
-        return Err(error);
-    } else {
-        let _ = container.insert(value.clone());
-    }
-    Ok(())
+pub(crate) struct Container {
+    pub(crate) identity: Ident,
+    pub(crate) prior: syn::Path,
+    pub(crate) error: Option<syn::Path>,
+    pub(crate) deserializer: Option<syn::Path>,
 }
 
 impl Container {
@@ -87,6 +64,7 @@ impl Container {
         let identity = input.ident.clone();
         let mut maybe_prior: Option<syn::Path> = None;
         let mut maybe_error: Option<syn::Path> = None;
+        let mut maybe_deserializer: Option<syn::Path> = None;
 
         for attribute_ast in input
             .attrs
@@ -99,45 +77,33 @@ impl Container {
                 .into_iter()
             {
                 match attr {
-                    ParsedAttribute::prior(ref path) => {
-                        checked_set(
-                            &Into::<KnownAttribute>::into(attr.clone()),
-                            path,
-                            &mut maybe_prior,
-                        )?;
+                    ParsedAttribute::from(path) => {
+                        maybe_prior = Some(path);
                     }
-                    ParsedAttribute::error(ref path) => {
-                        checked_set(
-                            &Into::<KnownAttribute>::into(attr.clone()),
-                            path,
-                            &mut maybe_error,
-                        )?;
-                    }
+                    ParsedAttribute::error(path) => maybe_error = Some(path),
+                    ParsedAttribute::deserializer(path) => maybe_deserializer = Some(path),
                 }
             }
         }
 
-        if let Some(prior) = &maybe_prior {
-            if prior.get_ident().is_some_and(|ident| ident == "None") {
-                maybe_prior = Some(identity.clone().into());
-            }
-        }
-
-        match (maybe_prior, maybe_error) {
-            (None, None) | (None, Some(_))=> Err(syn::Error::new(
+        let prior = maybe_prior.ok_or_else(|| {
+            syn::Error::new(
                 identity.span(),
                 format!(
-                    "Missing required attribute `{prior}`. Use `#[{NAMESPACE}({prior} = <struct>)]` to migrate from another struct or `#[{NAMESPACE}({prior} = None)]` if this is the first struct in the migration chain",
-                    prior = KnownAttribute::prior
-                ),
-            )),
-            (Some(prior), None) => Ok(Container::ErrorFromPrior { identity, prior }),
-            (Some(prior), Some(error)) => Ok(Container::Full {
-                identity,
-                prior,
-                error,
-            }),
-        }
+                    "Missing required attribute `{from}`. Use `#[{NAMESPACE}({from} = <struct>)]` to migrate from another struct or `#[{NAMESPACE}({from} = None)]` if this is the first struct in the migration chain",
+                    from = KnownAttribute::from
+                )
+            )
+        })
+        .map(|prior| if prior.get_ident().is_some_and(|ident| ident == "None") { identity.clone().into() } else { prior })
+        ?;
+
+        Ok(Container {
+            identity,
+            prior,
+            error: maybe_error,
+            deserializer: maybe_deserializer,
+        })
     }
 }
 
@@ -156,57 +122,35 @@ mod test {
         assert!(&result.is_err(), "Expected an error, got {:?}", &result);
         assert_eq!(
             format!("{}", result.err().unwrap()),
-            r#"Missing required attribute `prior`. Use `#[try_migrate(prior = <struct>)]` to migrate from another struct or `#[try_migrate(prior = None)]` if this is the first struct in the migration chain"#
-        );
-    }
-
-    #[test]
-    fn test_duplicate_attribute() {
-        let input = syn::parse_quote! {
-            #[try_migrate(prior = MetadataV1)]
-            #[try_migrate(prior = MetadataV1)]
-            struct MetadataV1 {
-            }
-        };
-
-        let result = Container::from_ast(&input);
-        assert!(&result.is_err(), "Expected an error, got {:?}", &result);
-        assert_eq!(
-            format!("{}", result.err().unwrap()),
-            r#"Duplicate definition for `#[try_migrate(prior)]`."#
+            r#"Missing required attribute `from`. Use `#[try_migrate(from = <struct>)]` to migrate from another struct or `#[try_migrate(from = None)]` if this is the first struct in the migration chain"#
         );
     }
 
     #[test]
     fn test_implicit_error() {
         let input = syn::parse_quote! {
-            #[try_migrate(prior = MetadataV1)]
+            #[try_migrate(from =  MetadataV1)]
             struct MetadataV2 {}
         };
         let container = Container::from_ast(&input).unwrap();
-        assert!(matches!(
-            container,
-            Container::ErrorFromPrior {
-                identity: _,
-                prior: _
-            }
-        ))
+        assert_eq!(container.error, None)
     }
 
     #[test]
     fn test_prior_and_error() {
         let input = syn::parse_quote! {
-            #[try_migrate(prior = MetadataV1, error = CustomError)]
+            #[try_migrate(from =  MetadataV1, error = CustomError)]
             struct MetadataV2 {}
         };
 
         let container = Container::from_ast(&input).unwrap();
         assert!(matches!(
             container,
-            Container::Full {
+            Container {
                 identity: _,
                 prior: _,
-                error: _
+                error: Some(_),
+                deserializer: None
             }
         ))
     }
@@ -214,7 +158,7 @@ mod test {
     #[test]
     fn test_unknown_attribute_errors() {
         let input = syn::parse_quote! {
-            #[try_migrate(prior = MetadataV1, error = CustomError, unknown = "LOL")]
+            #[try_migrate(from =  MetadataV1, error = CustomError, unknown = "LOL")]
             struct MetadataV2 {}
         };
 
@@ -222,14 +166,14 @@ mod test {
         assert!(&result.is_err(), "Expected an error, got {:?}", result);
         assert_eq!(
             format!("{}", &result.err().unwrap()),
-            r#"Unknown try_migrate attribute: `unknown`. Must be one of `prior`, `error`"#
+            r#"Unknown try_migrate attribute: `unknown`. Must be one of `from`, `error`, `deserializer`"#
         );
     }
 
     #[test]
     fn test_prior_none() {
         let input = syn::parse_quote! {
-            #[try_migrate(prior = None)]
+            #[try_migrate(from =  None)]
             struct MetadataV1 {
             }
         };
@@ -237,9 +181,11 @@ mod test {
         let container = Container::from_ast(&input).unwrap();
         assert!(matches!(
             container,
-            Container::ErrorFromPrior {
+            Container {
                 identity: _,
                 prior: _,
+                error: None,
+                deserializer: None
             }
         ))
     }
@@ -247,7 +193,7 @@ mod test {
     #[test]
     fn test_prior_explicit_self() {
         let input = syn::parse_quote! {
-            #[try_migrate(prior = MetadataV1)]
+            #[try_migrate(from =  MetadataV1)]
             struct MetadataV1 {
             }
         };
@@ -255,9 +201,31 @@ mod test {
         let container = Container::from_ast(&input).unwrap();
         assert!(matches!(
             container,
-            Container::ErrorFromPrior {
+            Container {
                 identity: _,
                 prior: _,
+                error: None,
+                deserializer: None
+            }
+        ))
+    }
+
+    #[test]
+    fn test_explicit_deserializer() {
+        let input = syn::parse_quote! {
+            #[try_migrate(from =  MetadataV1, deserializer = serde_json::de::Deserializer::from_str)]
+            struct MetadataV1 {
+            }
+        };
+
+        let container = Container::from_ast(&input).unwrap();
+        assert!(matches!(
+            container,
+            Container {
+                identity: _,
+                prior: _,
+                error: None,
+                deserializer: Some(_)
             }
         ))
     }

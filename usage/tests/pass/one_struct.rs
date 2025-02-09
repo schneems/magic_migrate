@@ -1,7 +1,7 @@
 use magic_migrate::TryMigrate;
 
 #[derive(TryMigrate, serde::Deserialize, Debug)]
-#[try_migrate(prior = None)]
+#[try_migrate(from = None)]
 struct MetadataV1 {}
 
 fn main() {

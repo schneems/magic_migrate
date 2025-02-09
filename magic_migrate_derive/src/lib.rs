@@ -13,55 +13,50 @@ pub fn try_migrate(item: TokenStream) -> TokenStream {
 fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2::TokenStream> {
     let ast: DeriveInput = syn::parse2(item)?;
     let container = Container::from_ast(&ast)?;
-    let error = match &container {
-        Container::ErrorFromPrior { identity, prior } => {
-            if prior.get_ident().is_some_and(|p| p == identity) {
-                quote::quote! { std::convert::Infallible }
-            } else {
-                quote::quote! { <#identity as TryFrom<#prior>>::Error }
-            }
+    let Container {
+        identity,
+        prior,
+        error,
+        deserializer,
+    } = container;
+
+    // True when it's the first TryMigrate in the chain (prior == self)
+    let from_none = prior.get_ident().is_some_and(|ident| ident == &identity);
+
+    let error_type = error.map(|e| quote::quote! {#e}).unwrap_or_else(|| {
+        // If not explicit, only the first error in the chain is required.
+        // This allows for reduced repetition
+        //
+        // TODO: Add a test for this behavior
+        if from_none {
+            quote::quote! { magic_migrate::MigrateError }
+        } else {
+            quote::quote! { <#prior as magic_migrate::TryMigrate>::Error }
         }
-        Container::Full {
-            identity: _,
-            prior: _,
-            error,
-        } => quote::quote! {
-            #error
-        },
-    };
+    });
 
-    // let maybe_infallible = match &container {
-    //     Container::ErrorFromPrior { .. } => {
-    //         quote::quote! {}
-    //     }
-    //     Container::Full { error, .. } => quote::quote! {
-    //         impl std::convert::From<std::convert::Infallible> for #error {
-    //             fn from(_value: std::convert::Infallible) -> Self {
-    //                 unreachable!()
-    //             }
-    //         }
-    //     },
-    // };
-    // eprintln!("===========");
-    // eprintln!("{container:?}");
-    // eprintln!("{maybe_infallible:?}");
+    // Default to toml
+    let deserializer_fn = deserializer
+        .map(|d| quote::quote! { #d(input) })
+        .unwrap_or_else(|| {
+            // If not explicit, only the first deserializer in the chain is required
+            // This allows for reduced repetition
+            //
+            // TODO: Add a test for this behavior
+            if from_none {
+                quote::quote! { toml::Deserializer::new(input) }
+            } else {
+                quote::quote! { <Self as magic_migrate::TryMigrate>::TryFrom::deserializer(input) }
+            }
+        });
 
-    let code = match &container {
-        Container::ErrorFromPrior { identity, prior }
-        | Container::Full {
-            identity,
-            prior,
-            error: _,
-        } => {
-            quote::quote! {
-                impl TryMigrate for #identity {
-                    type TryFrom = #prior;
-                    type Error = #error;
+    let code = quote::quote! {
+        impl TryMigrate for #identity {
+            type TryFrom = #prior;
+            type Error = #error_type;
 
-                    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
-                        toml::Deserializer::new(input)
-                    }
-                }
+            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
+                #deserializer_fn
             }
         }
     };
