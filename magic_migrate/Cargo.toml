@@ -1,16 +1,15 @@
 [package]
 name = "magic_migrate"
+description = "Automagically load and migrate deserialized structs to the latest version"
+include = ["src/**/*", "LICENSE", "README.md"]
+keywords = ["serde", "version", "upgrade", "migrate", "isomorphic"]
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
-description = "Automagically load and migrate deserialized structs to the latest version"
-keywords = ["serde", "version", "upgrade", "migrate", "isomorphic"]
 repository.workspace = true
 documentation.workspace = true
-readme = "README.md"
-include = ["src/**/*", "LICENSE", "README.md"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 serde = "1"
