@@ -14,7 +14,8 @@
 #     job_title: String,
 # }
 #
-# #[derive(Debug, Eq, PartialEq)]
+# #[derive(Debug, Eq, PartialEq, thiserror::Error)]
+# #[error("Title cannot be empty")]
 # struct TitleCannotBeEmpty;
 #
 # impl From<TitleCannotBeEmpty> for PersonMigrationError {

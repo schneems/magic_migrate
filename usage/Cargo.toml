@@ -1,0 +1,18 @@
+[package]
+name = "usage"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[dependencies]
+magic_migrate = { path = "../magic_migrate" }
+serde.workspace = true
+toml.workspace = true
+thiserror = "2.0"
+
+[dev-dependencies]
+trybuild = "1.0.101"
+pretty_assertions.workspace = true
