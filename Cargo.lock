@@ -416,7 +416,6 @@ dependencies = [
  "magic_migrate",
  "pretty_assertions",
  "serde",
- "serde_json",
  "thiserror",
  "toml",
  "trybuild",
