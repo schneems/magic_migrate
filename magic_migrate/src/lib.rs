@@ -160,7 +160,7 @@
 //!
 //! - The [Serde version crate](https://docs.rs/serde-version/latest/serde_version/) seems to have overlapping goals. Differences are unclear. If you've tried it, update these docs.
 
-mod derive_interface;
+mod declarative_macros;
 mod mini_how;
 mod traits;
 pub use magic_migrate_derive::TryMigrate;
