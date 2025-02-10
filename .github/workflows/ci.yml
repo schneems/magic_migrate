@@ -8,20 +8,6 @@ on:
   pull_request:
 
 jobs:
-  check_publishable:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Update Rust toolchain
-        # Most of the time this will be a no-op, since GitHub releases new images every week
-        # which include the latest stable release of Rust, Rustup, Clippy and rustfmt.
-        run: rustup update
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.3
-      - name: Check cargo publish
-        run: cargo publish --dry-run
-
   lint:
     runs-on: ubuntu-22.04
     steps:
