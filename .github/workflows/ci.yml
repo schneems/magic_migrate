@@ -54,4 +54,4 @@ jobs:
       - name: Install cargo readme
         run: cargo install cargo-rdme
       - name: Check if README.md is up-to-date (see README.md for updating instructions)
-        run: cargo rdme -w cache_diff --check
+        run: cargo rdme -w magic_migrate --check
