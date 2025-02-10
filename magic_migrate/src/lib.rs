@@ -1,5 +1,3 @@
-//! ## Magic Migrate
-//!
 //! Automagically load and migrate deserialized structs to the latest version.
 //!
 //! > 🎵 If you believe in magic, come along with me
