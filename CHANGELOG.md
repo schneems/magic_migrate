@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Add: Introduce `TryMigrate` derive macro, this is preferred over the declarative macros.
 - Add: Introduce `magic_migrate::MigrateError` as an available generic error for receiving any `TryFrom::Error`.
 
 ## 1.0.1

@@ -24,132 +24,150 @@ Automagically load and migrate deserialized structs to the latest version.
 > We'll dance until morning 'til there's just you and me 🎵
 >
 
-These docs are [intended to be read on docs.rs](https://docs.rs/magic_migrate/latest/magic_migrate/).
-
 ### What
 
-Let's say that you made a struct that serializes to disk somehow; perhaps it uses toml. Now, let's say you want to add a new field to that struct but want to keep older persisted data. Whatever should you do?
-
-You can define how to convert from one struct to another using either [`From`] or [`TryFrom`], then tell Rust how to migrate from one to the next via [`Migrate`] or [`TryMigrate`] traits. Now, when you try to load data into the current struct, it will follow a chain of structs in reverse order to find the first one that successfully serializes. When that happens, it will convert that struct to the latest version for you. It's magic! (Actually, it's mostly clever use of trait boundaries, but whatever).
-
-### Docs
-
-For additional docs, see:
-
-- Traits:
-    - [`Migrate`] trait for infallible migrations
-    - [`TryMigrate`] trait for failable migrations
-
-- TOML Chain macros: Specify the order of structs in the migration chain for TOML data.
-    - [`migrate_toml_chain`] macro for infallible migrations of TOML data
-    - [`try_migrate_toml_chain`] macro for fallible migrations of TOML data. Requires an additional error struct.
-
-- BYO deserializer macros:
-    - [`migrate_deserializer_chain`] macro for infallible migrations, BYO Deserializer
-    - [`try_migrate_deserializer_chain`] macro for fallible migrations, BYO Deserializer. Requires an additional error struct.
-
-### Fallible [`TryMigrate`] Example with [`try_migrate_deserializer_chain`]
-
-Once defined, invoke migrations via the `try_from_str_migrations` associated function on the struct you wish to deserialize to.
-
-To define migrations you can use a macro like this:
+Provides a migration path for deserializing older structs into newer ones. For example, if you
+have a `struct MetadataV1 { name: String }` that is serialized to TOML and loaded,
+this crate allows you to make a change to things field names without invalidating the already serialized data:
 
 ```rust
-use magic_migrate::TryMigrate;
+use magic_migrate::{MigrateError, TryMigrate};
+use serde::{Deserialize};
 
-// ...
-
-magic_migrate::try_migrate_deserializer_chain!(
-    deserializer: toml::Deserializer::new,
-    error: PersonMigrationError,
-    chain: [PersonV1, PersonV2],
-);
-```
-
-- `deserializer:` The argument should be a function that takes an `&str` and returns `impl Deserialize<'de>`. To deserialize TOML you can use the `toml` crate and specify the `toml::Deserializer::new` function.
-- `error:` The error enum used when deserialization fails. Every `TryFrom` should return an error that defines an `Into` for this provided error.
-- `chain:` An ordered list of structs from left to right that you wish to migrate between. Each pair of structs must define it's own `TryFrom` separately. In this case, only a `TryFrom<PersonV1> for PersonV2` is needed.
-
-Full example:
-
-```rust
-use magic_migrate::TryMigrate;
-
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(TryMigrate, Debug, Deserialize)]
+#[try_migrate(from = None)]
 #[serde(deny_unknown_fields)]
-struct PersonV1 {
-    name: String
-}
+struct MetadataV1 { name: String }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(TryMigrate, Debug, Deserialize)]
+#[try_migrate(from = MetadataV1)]
 #[serde(deny_unknown_fields)]
-struct PersonV2 {
-    name: String,
-    updated_at: DateTime<Utc>
-}
-magic_migrate::try_migrate_deserializer_chain!( // <=========== HERE
-    deserializer: toml::Deserializer::new,
-    error: PersonMigrationError,
-    chain: [PersonV1, PersonV2],
-);
+struct MetadataV2 { full_name: String }
 
-impl TryFrom<PersonV1> for PersonV2 {
-    type Error = NotRichard;
+impl std::convert::TryFrom<MetadataV1> for MetadataV2 {
+    type Error = NameIsEmpty;
 
-    fn try_from(value: PersonV1) -> Result<Self, NotRichard> {
-        if &value.name == "Schneems" {
-            Ok(PersonV2 {
-                    name: value.name.clone(),
-                    updated_at: Utc::now()
-               })
+    fn try_from(value: MetadataV1) -> Result<Self, Self::Error> {
+        if value.name.is_empty() {
+            Err(NameIsEmpty)
         } else {
-            Err(NotRichard { name: value.name.clone() })
+          Ok(MetadataV2 { full_name: value.name })
         }
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-struct NotRichard {
-  name: String
+#[derive(Debug, thiserror::Error)]
+#[error("Name cannot be empty")]
+struct NameIsEmpty;
+
+// Note that the field is `name` which `MetadataV2` does not have but V1 does
+let v2: Result<MetadataV2, MigrateError> =
+    MetadataV2::try_from_str_migrations("name = 'Richard'").unwrap();
+
+assert!(matches!(v2, Ok(MetadataV2 { .. })));
+```
+
+The main use case is for [building Cloud Native Buildpacks (CNBs) in Rust](https://crates.io/crates/libcnb).
+In this environment, cache keys are serialized as TOML to disk and if they're unable to be deserialized
+then the cache is cleared. This [`TryMigrate`] trait gives total flexability to the author to support
+one or many data layouts.
+
+You can see an [interface that relies on this behavior here](https://github.com/heroku/buildpacks-ruby/blob/99305fbf30918b1e0657d7bedbf5cd4859a4eb74/commons/src/layer/diff_migrate.rs#L121).
+
+### Concepts
+
+The core migration concept is inspired by [database migrations](https://guides.rubyonrails.org/active_record_migrations.html).
+Here, the overall change is represented as a series of modifications that can be played in order
+to reach the final desired data representation. Each change is represented by a [`std::convert::TryFrom`]
+implementation, and the whole chain of migrations are tied together with [TryMigrate].
+
+### Use
+
+```term
+$ cargo add magic_migrate
+```
+
+### Derive [TryMigrate] quick start
+
+The derive macro is enabled by default. To add
+
+- Import the trait `use magic_migrate::TryMigrate;`
+- Add the derive declaration `#[derive(TryMigrate)]` to your structs
+- Annotate the first struct in the chain with `#[try_migrate(from = None)]`
+- Annotate the next struct in the chain to point at the one before it e.g. `#[try_migrate(from = MetadataV1)]`
+- Add a [std::convert::TryFrom] implementation between the two structs.
+
+That's all you need to get up and running. Keep reading
+
+### Derive [TryMigrate] details
+
+The macro can be configured with attributes on the container (struct).
+
+Container Attributes:
+
+- `#[try_migrate(from = <previous struct> | None)]` (Required) Tells the struct what previous struct it should migrate from.
+  When there are no previous structs use `None`.
+- `#[try_migrate(error = <error enum>)]` (Optional) Tells the [`TryMigrate`] trait how to hold error information
+  from all [TryFrom] errors in the chain. The default value is [crate::MigrateError] which holds anything that
+  implements the [`std::error::Error`] trait. It behaves similarly to [Anyhow](https://docs.rs/anyhow/latest/anyhow/).
+  To provide your own explicit error type see the error section below.
+- `#[try_migrate(deserializer = <deserializer function>)` (Optional) The default deserialization format is TOML
+   using the [toml](https://docs.rs/toml/latest/toml/) crate. This interface will likely need to change to
+  [support adjusting to use different serialization formats](https://github.com/schneems/magic_migrate/issues/16).
+
+The macro does not currently allow for any field level customization.
+
+Field Attributes:
+
+- None
+
+### Derive Error docs
+
+You can specify an explicit error using the `#[try_migrate(error = <enum>)]` attribute.
+
+This error must be able to hold every error raised by [TryFrom] in the chain. Which
+includes [std::convert::Infallible] (which is used for the base case as every struct can
+infallibly migrate to itself).
+
+Only the base case must declare a custom error, all other migrations will inherit it by default.
+
+```rust
+use magic_migrate::TryMigrate;
+use serde::{Deserialize};
+
+#[derive(TryMigrate, Debug, Deserialize)]
+#[try_migrate(from = None, error = CustomError )]
+#[serde(deny_unknown_fields)]
+struct MetadataV1 { name: String }
+
+// ...
+
+
+
+
+#[derive(Debug, thiserror::Error)]
+enum CustomError {
+  #[error("Cannot migrate due to error: {0}")]
+  EmptyName(NameIsEmpty)
 }
 
-impl From<NotRichard> for PersonMigrationError {
-    fn from(value: NotRichard) -> Self {
-        PersonMigrationError::NotRichard(value)
+impl From<NameIsEmpty> for CustomError {
+  fn from(value: NameIsEmpty) -> Self {
+      CustomError::EmptyName(value)
+  }
+}
+
+impl From<std::convert::Infallible> for CustomError {
+    fn from(_value: std::convert::Infallible) -> Self {
+        unreachable!()
     }
 }
 
-#[derive(Debug, thiserror::Error, Eq, PartialEq)]
-enum PersonMigrationError {
-    #[error("Not Richard {0:?}")]
-    NotRichard(NotRichard),
-}
-
-// Create a V2 struct from V1 data
-let person: PersonV2 = PersonV2::try_from_str_migrations("name = 'Schneems'").unwrap().unwrap();
-assert_eq!(person.name, "Schneems".to_string());
+// Logic is adjusted to return an error
+let v2: Result<MetadataV2, CustomError> =
+    MetadataV2::try_from_str_migrations("name = ''").unwrap();
+assert!(matches!(v2, Err(CustomError::EmptyName(_))));
 ```
-
-Protip: You can reduce code churn by creating a type alias to your most recent struct in the chain. For example:
-
-```rust
-pub(crate) type Person = PersonV2;
-```
-
-### Why
-
-This library was created to handle the case of serialized metadata stored in layers in a <https://github.com/heroku/libcnb.rs> buildpack as toml.
-
-In this use case, structs are serialized to disk when the Cloud Native Buildpack (CNB) is run. Usually, these values represent the application cache state and are important for cache invalidations.
-
-The buildpack implementer has no control over how often the buildpack is run. That means there's no guarantee the end user will run it with sequential struct versions. One user might run with the latest struct version serialized, and another might use a version from years ago.
-
-This scenario happens in the wild with <https://github.com/heroku/heroku-buildpack-ruby> (a "classic" buildpack i.e. not CNB).
-
-Instead of forcing the programmer to consider all possible cache states at all times, a "migration" approach allows programmers to focus on a single cache state change at a time. Which reduces programmer cognitive overhead and (hopefully) reduces bugs.
 
 ### What won't it do? (The ABA problem)
 

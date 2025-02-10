@@ -1,4 +1,4 @@
-/// Macro for linking structs together in an infallible [`Migrate`] migration chain
+/// Macro for linking structs together in an infallible [`crate::Migrate`] migration chain
 /// without defining the first migration in the chain
 /// or the deserializer.
 ///
@@ -7,12 +7,12 @@
 /// Relies on A => A to define the type of deserializer.
 /// That means this can be reused for any deserializer you want.
 ///
-/// For a fallible migration chain see [`try_migrate_link`].
+/// For a fallible migration chain see [`crate::try_migrate_link`].
 ///
 /// This macro is used by higher level macros like:
 ///
-/// - [`migrate_toml_chain!`] for TOML migrations
-/// - [`migrate_deserializer_chain!`] for migrations with a custom deserializer
+/// - [`crate::migrate_toml_chain!`] for TOML migrations
+/// - [`crate::migrate_deserializer_chain!`] for migrations with a custom deserializer
 #[macro_export]
 macro_rules! migrate_link {
     // Base case, defines the trait
@@ -35,12 +35,12 @@ macro_rules! migrate_link {
     );
 }
 
-/// Links each struct passed in to each other to build a [`Migrate`] link chain.
+/// Links each struct passed in to each other to build a [`crate::Migrate`] link chain.
 /// Including creating the first "self" migration which defines the deserializer
 /// to be TOML.
 ///
-/// To BYO deserializer use [`migrate_deserializer_chain!`]. For a failible migration
-/// use [`try_migrate_toml_chain!`].
+/// To BYO deserializer use [`crate::migrate_deserializer_chain!`]. For a failible migration
+/// use [`crate::try_migrate_toml_chain!`].
 ///
 /// ## Example
 ///
@@ -73,7 +73,7 @@ macro_rules! migrate_toml_chain {
     );
 }
 
-/// Macro for linking structs together in an infallible [`TryMigrate`] migration chain
+/// Macro for linking structs together in an infallible [`crate::TryMigrate`] migration chain
 /// without defining the first migration in the chain
 /// or the deserializer.
 ///
@@ -82,12 +82,12 @@ macro_rules! migrate_toml_chain {
 /// Relies on A => A to define the type of deserializer.
 /// That means this can be reused for any deserializer you want.
 ///
-/// For a infallible migration chain see [`migrate_link`].
+/// For a infallible migration chain see [`crate::migrate_link`].
 ///
 /// This macro is used by higher level macros like:
 ///
-/// - [`try_migrate_toml_chain!`] for TOML migrations
-/// - [`try_migrate_deserializer_chain!`] for migrations with a custom deserializer
+/// - [`crate::try_migrate_toml_chain!`] for TOML migrations
+/// - [`crate::try_migrate_deserializer_chain!`] for migrations with a custom deserializer
 #[macro_export]
 macro_rules! try_migrate_link {
     // Base case, defines the trait
@@ -111,10 +111,10 @@ macro_rules! try_migrate_link {
     );
 }
 
-/// A macro to help define [`TryMigrate`] based migrations
+/// A macro to help define [`crate::TryMigrate`] based migrations
 ///
-/// To use a different deserializer use [`try_migrate_deserializer_chain!`].
-/// To define infallible migrations use [`migrate_toml_chain!`].
+/// To use a different deserializer use [`crate::try_migrate_deserializer_chain!`].
+/// To define infallible migrations use [`crate::migrate_toml_chain!`].
 ///
 /// # Example
 ///
@@ -171,11 +171,11 @@ macro_rules! try_migrate_toml_chain {
     );
 }
 
-/// A macro to help define infallible [`Migrate`] based migrations with an arbitrary deserializer.
+/// A macro to help define infallible [`crate::Migrate`] based migrations with an arbitrary deserializer.
 ///
 /// The argument passed to `deserializer:` in the macro should be a function that returns an `impl Deserializer`.
 ///
-/// For a fallible migration chain see [`try_migrate_deserializer_chain!`].
+/// For a fallible migration chain see [`crate::try_migrate_deserializer_chain!`].
 ///
 /// # Example
 ///
@@ -230,14 +230,14 @@ macro_rules! migrate_deserializer_chain {
     };
 }
 
-/// A macro to help define [`TryMigrate`] based migrations with an arbitrary deserializer.
+/// A macro to help define [`crate::TryMigrate`] based migrations with an arbitrary deserializer.
 ///
 /// The argument passed to `deserializer:` in the macro should be a function that returns an `impl Deserializer`.
 ///
 /// The argument passed to `error:` in the macro should be the error type that every error from the [`TryFrom`] implementations
 /// can be coherced [`Into`].
 ///
-/// For an infallible migration chain see [`migrate_deserializer_chain!`].
+/// For an infallible migration chain see [`crate::migrate_deserializer_chain!`].
 ///
 /// ## Example
 ///
