@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix: Explicit full paths in generated code.
+
 ## 1.1.0
 
 - Add: Introduce `TryMigrate` derive macro, this is preferred over the declarative macros. (https://github.com/schneems/magic_migrate/pull/17)

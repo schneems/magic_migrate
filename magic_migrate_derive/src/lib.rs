@@ -27,9 +27,9 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
         // If not explicit, only the first error in the chain is required.
         // This allows for reduced repetition
         if from_none {
-            quote::quote! { magic_migrate::MigrateError }
+            quote::quote! { ::magic_migrate::MigrateError }
         } else {
-            quote::quote! { <#prior as magic_migrate::TryMigrate>::Error }
+            quote::quote! { <#prior as ::magic_migrate::TryMigrate>::Error }
         }
     });
 
@@ -40,18 +40,18 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
             // If not explicit, only the first deserializer in the chain is required
             // This allows for reduced repetition
             if from_none {
-                quote::quote! { toml::Deserializer::new(input) }
+                quote::quote! { ::toml::Deserializer::new(input) }
             } else {
-                quote::quote! { <Self as magic_migrate::TryMigrate>::TryFrom::deserializer(input) }
+                quote::quote! { <Self as ::magic_migrate::TryMigrate>::TryFrom::deserializer(input) }
             }
         });
 
     let code = quote::quote! {
-        impl TryMigrate for #identity {
+        impl ::magic_migrate::TryMigrate for #identity {
             type TryFrom = #prior;
             type Error = #error_type;
 
-            fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
+            fn deserializer<'de>(input: &str) -> impl ::serde::de::Deserializer<'de> {
                 #deserializer_fn
             }
         }
