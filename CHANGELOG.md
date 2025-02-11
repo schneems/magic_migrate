@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Fix: Explicit full paths in generated code.
+
+## 1.1.0
+
 - Add: Introduce `TryMigrate` derive macro, this is preferred over the declarative macros. (https://github.com/schneems/magic_migrate/pull/17)
 - Add: Introduce `magic_migrate::MigrateError` as an available generic error for receiving any `TryFrom::Error`. (https://github.com/schneems/magic_migrate/pull/17)
 - Add: Declarative macros (`try_migrate_toml_chain!` etc.) are deprecated in favor of the new derive macro. (https://github.com/schneems/magic_migrate/pull/17)
