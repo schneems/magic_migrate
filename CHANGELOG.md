@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Changed: Declarative macros are removed, use the derive macros (proc macros) instead ()
 - Fix: Explicit full paths in generated code.
 
 ## 1.1.0

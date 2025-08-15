@@ -195,7 +195,6 @@
 //!
 //! - The [Serde version crate](https://docs.rs/serde-version/latest/serde_version/) seems to have overlapping goals. Differences are unclear. If you've tried it, update these docs.
 
-mod declarative_macros;
 mod mini_how;
 mod traits;
 
