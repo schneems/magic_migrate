@@ -93,7 +93,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
         if let Ok(instance) = Self::deserialize(Self::deserializer(input)) {
             Some(instance)
         } else if TypeId::of::<Self>() == TypeId::of::<Self::From>() {
-            return None;
+            None
         } else {
             <Self::From as Migrate>::from_str_migrations(input).map(Into::into)
         }
@@ -201,7 +201,7 @@ pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
         if let Ok(instance) = Self::deserialize(Self::deserializer(input)) {
             Some(Ok(instance))
         } else if TypeId::of::<Self>() == TypeId::of::<Self::TryFrom>() {
-            return None;
+            None
         } else {
             <Self::TryFrom as TryMigrate>::try_from_str_migrations(input).map(|inner| {
                 inner
