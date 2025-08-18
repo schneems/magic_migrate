@@ -1,6 +1,6 @@
 ## Unreleased
 
-- Changed: Declarative macros are removed, use the derive macros (proc macros) instead ()
+- Changed: Declarative macros are removed, use the derive macros (proc macros) instead (https://github.com/schneems/magic_migrate/pull/19)
 - Fix: Explicit full paths in generated code. (https://github.com/schneems/magic_migrate/pull/18)
 
 ## 1.1.0
