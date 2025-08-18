@@ -41,8 +41,8 @@ use std::fmt::{Debug, Display};
 /// impl Migrate for PersonV1 {
 ///     type From = Self;
 ///
-///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
-///         toml::Deserializer::new(input)
+///     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
+///         magic_migrate::de::toml(input)
 ///     }
 /// }
 ///
@@ -53,7 +53,7 @@ use std::fmt::{Debug, Display};
 /// impl Migrate for PersonV2 {
 ///     type From = PersonV1;
 ///
-///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
+///     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
 ///         <Self as Migrate>::From::deserializer(input)
 ///     }
 /// }
@@ -78,7 +78,7 @@ use std::fmt::{Debug, Display};
 pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
     type From: Migrate;
 
-    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de>;
+    fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de>;
 
     fn from_str_migrations(input: &str) -> Option<Self> {
         if let Ok(instance) = Self::deserialize(Self::deserializer(input)) {
@@ -123,8 +123,8 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///     type TryFrom = Self;
 ///     type Error = PersonMigrationError;
 ///
-///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
-///         toml::Deserializer::new(input)
+///     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
+///         magic_migrate::de::toml(input)
 ///     }
 /// }
 ///
@@ -145,7 +145,7 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 ///     type TryFrom = PersonV1;
 ///     type Error = PersonMigrationError;
 ///
-///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
+///     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
 ///         <Self as TryMigrate>::TryFrom::deserializer(input)
 ///     }
 /// }
@@ -175,7 +175,7 @@ pub trait TryMigrate: TryFrom<Self::TryFrom> + Any + DeserializeOwned + Debug {
 
     /// Tell magic migrate how you want to deserialize your strings
     /// into structs
-    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de>;
+    fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de>;
 
     type Error: From<<Self as TryFrom<<Self as TryMigrate>::TryFrom>>::Error>
         + From<<<Self as TryMigrate>::TryFrom as TryMigrate>::Error>
@@ -208,7 +208,7 @@ where
 {
     type TryFrom = <Self as Migrate>::From;
 
-    fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
+    fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
         <Self as Migrate>::deserializer(input)
     }
 

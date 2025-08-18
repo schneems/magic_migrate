@@ -40,7 +40,7 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
             // If not explicit, only the first deserializer in the chain is required
             // This allows for reduced repetition
             if from_none {
-                quote::quote! { ::toml::Deserializer::new(input) }
+                quote::quote! { ::magic_migrate::de::toml(input) }
             } else {
                 quote::quote! { <Self as ::magic_migrate::TryMigrate>::TryFrom::deserializer(input) }
             }
@@ -51,7 +51,7 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
             type TryFrom = #prior;
             type Error = #error_type;
 
-            fn deserializer<'de>(input: &str) -> impl ::serde::de::Deserializer<'de> {
+            fn deserializer<'de>(input: &'de str) -> impl ::serde::de::Deserializer<'de> {
                 #deserializer_fn
             }
         }

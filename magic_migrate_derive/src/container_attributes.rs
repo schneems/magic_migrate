@@ -15,7 +15,7 @@ pub(crate) enum ParsedAttribute {
     /// #[try_migrate(error = magic_migrate::MigrateError)]
     #[allow(non_camel_case_types)]
     error(syn::Path),
-    /// #[try_migrate(deserializer = toml::Deserializer::new)]
+    /// #[try_migrate(deserializer = magic_migrate::de::toml)]
     #[allow(non_camel_case_types)]
     deserializer(syn::Path),
 }

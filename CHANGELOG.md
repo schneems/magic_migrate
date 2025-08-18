@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Added: `magic_migrate::de::toml` when `toml` feature is enabled ()
+- Added: A `toml` feature (enabled by default) ()
 - Changed: Declarative macros are removed, use the derive macros (proc macros) instead (https://github.com/schneems/magic_migrate/pull/19)
 - Fix: Explicit full paths in generated code. (https://github.com/schneems/magic_migrate/pull/18)
 
