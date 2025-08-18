@@ -33,15 +33,15 @@ fn create_try_migrate(item: proc_macro2::TokenStream) -> syn::Result<proc_macro2
         }
     });
 
-    // Default to toml
     let deserializer_fn = deserializer
         .map(|d| quote::quote! { #d(input) })
+        // Default case if not explicit
         .unwrap_or_else(|| {
-            // If not explicit, only the first deserializer in the chain is required
-            // This allows for reduced repetition
             if from_none {
+                // First struct in the chain, default to toml
                 quote::quote! { ::magic_migrate::de::toml(input) }
             } else {
+                // Rest of the chain, use the prior struct's deserializer
                 quote::quote! { <Self as ::magic_migrate::TryMigrate>::TryFrom::deserializer(input) }
             }
         });

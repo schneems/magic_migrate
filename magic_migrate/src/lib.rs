@@ -68,6 +68,13 @@
 //! $ cargo add magic_migrate
 //! ```
 //!
+//! ## Does not
+//!
+//! Does not validate the input string is valid for the given deserializer. If you pass in json
+//! to a toml deserializer it will return None as no struct in the chain can be built from the input.
+//!
+//! If you need to validate input format, you can serialize to something like `toml::Value` first.
+//!
 //! ## Derive [TryMigrate] quick start
 //!
 //! The derive macro is enabled by default. To add
