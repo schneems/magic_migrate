@@ -246,11 +246,11 @@ pub use mini_how::MagicError as MigrateError;
 
 pub mod de {
     //! Deserializer helper methods
-    use super::de_hacks::TomlDeWrapper;
+    use super::de_hacks::ResultDeWrapper;
 
     /// A helper for generating a toml deserializer
     #[cfg(feature = "toml")]
     pub fn toml<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
-        TomlDeWrapper::new(input)
+        ResultDeWrapper::new(toml::Deserializer::parse(input))
     }
 }
