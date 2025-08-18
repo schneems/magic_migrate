@@ -2,7 +2,7 @@
 //!
 //! Do not use this directly as the API is not stable
 
-/// Toml Deserializer Wrapper
+/// Result Deserializer Wrapper
 ///
 /// With `toml` (0.9) the `toml::Deserializer::parse` function returns a
 /// result instead of waiting until deserialize time to error.
@@ -11,24 +11,38 @@
 /// saves the error case until the deserializer is used and returns it then.
 /// This (seems to) happen when the input is not valid toml.
 #[cfg(feature = "toml")]
-pub(crate) struct TomlDeWrapper<'de> {
-    inner: Result<toml::de::Deserializer<'de>, toml::de::Error>,
+pub(crate) struct ResultDeWrapper<'de, T, E>
+where
+    T: serde::de::Deserializer<'de>,
+    E: serde::de::Error,
+{
+    inner: Result<T, E>,
+    _phantom: std::marker::PhantomData<&'de ()>,
 }
 
 #[cfg(feature = "toml")]
-impl<'de> TomlDeWrapper<'de> {
-    pub(crate) fn new(input: &'de str) -> Self {
-        TomlDeWrapper {
-            inner: toml::Deserializer::parse(input),
+impl<'de, T, E> ResultDeWrapper<'de, T, E>
+where
+    T: serde::de::Deserializer<'de>,
+    E: serde::de::Error,
+{
+    pub(crate) fn new(inner: Result<T, E>) -> Self {
+        Self {
+            inner,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
 #[cfg(feature = "toml")]
-impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
-    type Error = toml::de::Error;
+impl<'de, T, E> serde::de::Deserializer<'de> for ResultDeWrapper<'de, T, E>
+where
+    T: serde::de::Deserializer<'de, Error = E>,
+    E: serde::de::Error,
+{
+    type Error = E;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -38,7 +52,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -48,7 +62,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -58,7 +72,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -68,7 +82,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -78,7 +92,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -88,7 +102,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -98,7 +112,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -108,7 +122,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -118,7 +132,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -128,7 +142,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -138,7 +152,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -148,7 +162,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -158,7 +172,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -168,7 +182,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -178,7 +192,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -188,7 +202,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -198,7 +212,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -208,7 +222,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -222,7 +236,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         self,
         name: &'static str,
         visitor: V,
-    ) -> Result<V::Value, toml::de::Error>
+    ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -236,7 +250,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         self,
         name: &'static str,
         visitor: V,
-    ) -> Result<V::Value, toml::de::Error>
+    ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -246,7 +260,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -256,7 +270,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -271,7 +285,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         name: &'static str,
         len: usize,
         visitor: V,
-    ) -> Result<V::Value, toml::de::Error>
+    ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -281,7 +295,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -296,7 +310,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         name: &'static str,
         fields: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value, toml::de::Error>
+    ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -311,7 +325,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         name: &'static str,
         variants: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value, toml::de::Error>
+    ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -321,7 +335,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -331,7 +345,7 @@ impl<'de> serde::de::Deserializer<'de> for TomlDeWrapper<'de> {
         }
     }
 
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, toml::de::Error>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
