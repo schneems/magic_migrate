@@ -6,11 +6,6 @@ use std::fmt::{Debug, Display};
 /// from one version to the next. Use the [`TryMigrate`] trait when
 /// struct migration may fail.
 ///
-/// To help you out, you can also use the following macros:
-///
-/// - [`crate::migrate_toml_chain!`] to link structs together in a migration chain for TOML data.
-/// - [`crate::migrate_deserializer_chain!`] to link structs together in a migration chain, BYO deserializer.
-///
 /// These macros essentially automate the process you'll see below.
 ///
 /// Each [`Migrate`] implementation will create one link. To build a
@@ -25,10 +20,6 @@ use std::fmt::{Debug, Display};
 /// Both migration traits can be used with any deserializer format (i.e. toml,
 /// json, YAML, etc.). To create a migration, you'll have to tell Rust which
 /// deserializer you want to use.
-///
-/// Also see:
-///   - [`crate::migrate_link`] macro for quickly building all links but the first
-///   - [`crate::migrate_toml_chain`] macro for building an entire chain with the toml deserializer
 ///
 /// For infailable migrations, you can use the [`Migrate`] trait. For failable migrations,
 /// use the [`TryMigrate`] trait.
@@ -103,11 +94,6 @@ pub trait Migrate: From<Self::From> + Any + DeserializeOwned + Debug {
 /// Use the [`TryMigrate`] trait when structs CANNOT be infallibly migrated
 /// from one version to the next and an error may be returned. For infallible
 /// migration see [`Migrate`].
-///
-/// To help you out, you can use the following macros:
-///
-/// - [`crate::try_migrate_toml_chain!`] to link structs together in a migration chain for TOML data.
-/// - [`crate::try_migrate_deserializer_chain!`] to link structs together in a migration chain, BYO deserializer.
 ///
 /// Like [`Migrate`] each implementation of this trait creates a link in a migration
 /// chain. To have a full chain, the first struct must implement this trait
