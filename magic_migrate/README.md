@@ -112,7 +112,7 @@ Container Attributes:
   implements the [`std::error::Error`] trait. It behaves similarly to [Anyhow](https://docs.rs/anyhow/latest/anyhow/).
   To provide your own explicit error type see the error section below.
 - `#[try_migrate(deserializer = <deserializer function>)` (Optional) The default deserialization format is TOML
-   using the [toml](https://docs.rs/toml/latest/toml/) crate. This interface will likely need to change to
+  using the [toml](https://docs.rs/toml/latest/toml/) crate. This interface will likely need to change to
   [support adjusting to use different serialization formats](https://github.com/schneems/magic_migrate/issues/16).
 
 The macro does not currently allow for any field level customization.
