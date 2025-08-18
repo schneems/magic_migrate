@@ -68,6 +68,13 @@
 //! $ cargo add magic_migrate
 //! ```
 //!
+//! ## Does not
+//!
+//! Does not validate the input string is valid for the given deserializer. If you pass in json
+//! to a toml deserializer it will return None as no struct in the chain can be built from the input.
+//!
+//! If you need to validate input format, you can serialize to something like `toml::Value` first.
+//!
 //! ## Derive [TryMigrate] quick start
 //!
 //! The derive macro is enabled by default. To add
@@ -195,6 +202,7 @@
 //!
 //! - The [Serde version crate](https://docs.rs/serde-version/latest/serde_version/) seems to have overlapping goals. Differences are unclear. If you've tried it, update these docs.
 
+mod de_hacks;
 mod mini_how;
 mod traits;
 
@@ -216,8 +224,8 @@ pub use traits::{Migrate, TryMigrate};
 /// #     type TryFrom = PersonV1;
 /// #     type Error = MigrateError;
 /// #
-/// #     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
-/// #         toml::Deserializer::new(input)
+/// #     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
+/// #       ::magic_migrate::de::toml(input)
 /// #     }
 /// # }
 ///
@@ -225,8 +233,8 @@ pub use traits::{Migrate, TryMigrate};
 ///     type TryFrom = PersonV1;
 ///     type Error = MigrateError;
 ///
-///     fn deserializer<'de>(input: &str) -> impl serde::de::Deserializer<'de> {
-///         toml::Deserializer::new(input)
+///     fn deserializer<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
+///         ::magic_migrate::de::toml(input)
 ///     }
 /// }
 ///
@@ -235,3 +243,14 @@ pub use traits::{Migrate, TryMigrate};
 /// # assert!(matches!(&result, Err(MigrateError)), "Expected MagicMigrateError, got {:?}", &result)
 /// ```
 pub use mini_how::MagicError as MigrateError;
+
+pub mod de {
+    //! Deserializer helper methods
+    use super::de_hacks::TomlDeWrapper;
+
+    /// A helper for generating a toml deserializer
+    #[cfg(feature = "toml")]
+    pub fn toml<'de>(input: &'de str) -> impl serde::de::Deserializer<'de> {
+        TomlDeWrapper::new(input)
+    }
+}

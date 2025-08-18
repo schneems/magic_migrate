@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 // Longer term we should find a way to get this example working with serde_json https://github.com/schneems/magic_migrate/issues/16.
 #[derive(TryMigrate, Deserialize, Debug)]
-#[try_migrate(from = None, deserializer = toml::Deserializer::new)]
+#[try_migrate(from = None, deserializer = ::magic_migrate::de::toml)]
 struct MetadataV1 {
     name: String,
 }
