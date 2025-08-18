@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 2.0.0
+
 - Changed: The function `fn deserializer` in traits now has a lifetime associated with the argument: `input: &'de str` (https://github.com/schneems/magic_migrate/pull/20)
 - Added: A `magic_migrate::de::toml` helper method to return a toml deserializer when `toml` feature is enabled. This is helpful as toml 0.9+ deprecated `toml::Deserializer::new` which returned a deserializer directly with `toml::Deserializer::parse` which returns a `Result<toml::Deserializer, toml::Error>` (https://github.com/schneems/magic_migrate/pull/20)
 - Added: A `toml` feature (enabled by default) (https://github.com/schneems/magic_migrate/pull/20)
