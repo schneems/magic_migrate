@@ -3,6 +3,8 @@ resolver = "2"
 members = ["usage", "magic_migrate", "magic_migrate_derive"]
 
 [workspace.package]
+
+# Update `magic_migrate_derive = { version = ... }` line in `magic_migrate/Cargo.toml` when updating the version here
 version = "2.0.0"
 rust-version = "1.82"
 edition = "2021"
