@@ -119,7 +119,7 @@ mod test {
             }
         };
         let result = Container::from_ast(&input);
-        assert!(&result.is_err(), "Expected an error, got {:?}", &result);
+        assert!(&result.is_err(), "Expected an error, got {:?}", result);
         assert_eq!(
             format!("{}", result.err().unwrap()),
             r#"Missing required attribute `from`. Use `#[try_migrate(from = <struct>)]` to migrate from another struct or `#[try_migrate(from = None)]` if this is the first struct in the migration chain"#
@@ -165,7 +165,7 @@ mod test {
         let result = Container::from_ast(&input);
         assert!(&result.is_err(), "Expected an error, got {:?}", result);
         assert_eq!(
-            format!("{}", &result.err().unwrap()),
+            format!("{}", result.err().unwrap()),
             r#"Unknown try_migrate attribute: `unknown`. Must be one of `from`, `error`, `deserializer`"#
         );
     }
