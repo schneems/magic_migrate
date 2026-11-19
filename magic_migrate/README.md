@@ -69,7 +69,7 @@ assert!(matches!(v2, Ok(MetadataV2 { .. })));
 
 The main use case is for [building Cloud Native Buildpacks (CNBs) in Rust](https://crates.io/crates/libcnb).
 In this environment, cache keys are serialized as TOML to disk and if they're unable to be deserialized
-then the cache is cleared. This [`TryMigrate`] trait gives total flexability to the author to support
+then the cache is cleared. This [`TryMigrate`](https://docs.rs/magic_migrate/latest/magic_migrate/traits/trait.TryMigrate.html) trait gives total flexability to the author to support
 one or many data layouts.
 
 You can see an [interface that relies on this behavior here](https://github.com/heroku/buildpacks-ruby/blob/99305fbf30918b1e0657d7bedbf5cd4859a4eb74/commons/src/layer/diff_migrate.rs#L121).
@@ -78,8 +78,8 @@ You can see an [interface that relies on this behavior here](https://github.com/
 
 The core migration concept is inspired by [database migrations](https://guides.rubyonrails.org/active_record_migrations.html).
 Here, the overall change is represented as a series of modifications that can be played in order
-to reach the final desired data representation. Each change is represented by a [`std::convert::TryFrom`]
-implementation, and the whole chain of migrations are tied together with [TryMigrate].
+to reach the final desired data representation. Each change is represented by a [`std::convert::TryFrom`](https://doc.rust-lang.org/stable/core/convert/trait.TryFrom.html)
+implementation, and the whole chain of migrations are tied together with [`TryMigrate`](https://docs.rs/magic_migrate/latest/magic_migrate/traits/trait.TryMigrate.html).
 
 ### Use
 
@@ -94,7 +94,7 @@ to a toml deserializer it will return None as no struct in the chain can be buil
 
 If you need to validate input format, you can serialize to something like `toml::Value` first.
 
-### Derive [TryMigrate] quick start
+### Derive [`TryMigrate`](https://docs.rs/magic_migrate/latest/magic_migrate/traits/trait.TryMigrate.html) quick start
 
 The derive macro is enabled by default. To add
 
@@ -102,11 +102,11 @@ The derive macro is enabled by default. To add
 - Add the derive declaration `#[derive(TryMigrate)]` to your structs
 - Annotate the first struct in the chain with `#[try_migrate(from = None)]`
 - Annotate the next struct in the chain to point at the one before it e.g. `#[try_migrate(from = MetadataV1)]`
-- Add a [std::convert::TryFrom] implementation between the two structs.
+- Add a [`std::convert::TryFrom`](https://doc.rust-lang.org/stable/core/convert/trait.TryFrom.html) implementation between the two structs.
 
 That's all you need to get up and running. Keep reading
 
-### Derive [TryMigrate] details
+### Derive [`TryMigrate`](https://docs.rs/magic_migrate/latest/magic_migrate/traits/trait.TryMigrate.html) details
 
 The macro can be configured with attributes on the container (struct).
 
@@ -114,9 +114,9 @@ Container Attributes:
 
 - `#[try_migrate(from = <previous struct> | None)]` (Required) Tells the struct what previous struct it should migrate from.
   When there are no previous structs use `None`.
-- `#[try_migrate(error = <error enum>)]` (Optional) Tells the [`TryMigrate`] trait how to hold error information
-  from all [TryFrom] errors in the chain. The default value is [crate::MigrateError] which holds anything that
-  implements the [`std::error::Error`] trait. It behaves similarly to [Anyhow](https://docs.rs/anyhow/latest/anyhow/).
+- `#[try_migrate(error = <error enum>)]` (Optional) Tells the [`TryMigrate`](https://docs.rs/magic_migrate/latest/magic_migrate/traits/trait.TryMigrate.html) trait how to hold error information
+  from all [`TryFrom`](https://doc.rust-lang.org/stable/core/convert/trait.TryFrom.html) errors in the chain. The default value is [`crate::MigrateError`](https://docs.rs/magic_migrate/latest/magic_migrate/mini_how/struct.MagicError.html) which holds anything that
+  implements the [`std::error::Error`](https://doc.rust-lang.org/stable/core/error/trait.Error.html) trait. It behaves similarly to [Anyhow](https://docs.rs/anyhow/latest/anyhow/).
   To provide your own explicit error type see the error section below.
 - `#[try_migrate(deserializer = <deserializer function>)` (Optional) The default deserialization format is TOML
   using the [toml](https://docs.rs/toml/latest/toml/) crate. This interface will likely need to change to
@@ -132,8 +132,8 @@ Field Attributes:
 
 You can specify an explicit error using the `#[try_migrate(error = <enum>)]` attribute.
 
-This error must be able to hold every error raised by [TryFrom] in the chain. Which
-includes [std::convert::Infallible] (which is used for the base case as every struct can
+This error must be able to hold every error raised by [`TryFrom`](https://doc.rust-lang.org/stable/core/convert/trait.TryFrom.html) in the chain. Which
+includes [`std::convert::Infallible`](https://doc.rust-lang.org/stable/core/convert/enum.Infallible.html) (which is used for the base case as every struct can
 infallibly migrate to itself).
 
 Only the base case must declare a custom error, all other migrations will inherit it by default.
@@ -178,7 +178,7 @@ assert!(matches!(v2, Err(CustomError::EmptyName(_))));
 
 ### What won't it do? (The ABA problem)
 
-This library cannot ensure that if a `PersonV1` struct was serialized, it cannot be loaded into `PersonV2` without migration. I.e. it does not guarantee that the [`From`] or [`TryFrom`] code was run.
+This library cannot ensure that if a `PersonV1` struct was serialized, it cannot be loaded into `PersonV2` without migration. I.e. it does not guarantee that the [`From`](https://doc.rust-lang.org/stable/core/convert/trait.From.html) or [`TryFrom`](https://doc.rust-lang.org/stable/core/convert/trait.TryFrom.html) code was run.
 
 For example, if the `PersonV2` struct introduced an `Option<String>` field, instead of `DateTime<Utc>` then the string `"name = 'Richard'"` could be deserialized to either PersonV1 or PersonV2 without needing to call a migration.
 
